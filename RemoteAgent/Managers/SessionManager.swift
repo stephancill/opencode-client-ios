@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+@MainActor
 class SessionManager: ObservableObject {
     static let shared = SessionManager()
 

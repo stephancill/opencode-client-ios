@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+@MainActor
 class PermissionManager: ObservableObject {
     static let shared = PermissionManager()
     
@@ -8,7 +9,7 @@ class PermissionManager: ObservableObject {
     @Published var isLoading = false
     @Published var error: String?
     
-    private var timer: Timer?
+    nonisolated(unsafe) private var timer: Timer?
     
     private init() {
         startPolling()
@@ -26,15 +27,11 @@ class PermissionManager: ObservableObject {
             let client = OpenCodeAPIClient.shared
             let permissions = try await client.listPermissions()
             
-            await MainActor.run {
-                self.pendingPermissions = permissions
-                self.isLoading = false
-            }
-        } catch {
-            await MainActor.run {
-                self.error = error.localizedDescription
-                self.isLoading = false
-            }
+            pendingPermissions = permissions
+            isLoading = false
+        } catch let err {
+            error = err.localizedDescription
+            isLoading = false
         }
     }
 
@@ -55,37 +52,21 @@ class PermissionManager: ObservableObject {
             
             await fetchPermissions()
             return true
-        } catch {
-            await MainActor.run {
-                self.error = error.localizedDescription
-            }
+        } catch let err {
+            error = err.localizedDescription
             return false
         }
-    }
-
-    @MainActor
-    private func updatePermissions(_ permissions: [Permission]) {
-        self.pendingPermissions = permissions
-        self.isLoading = false
-        self.error = nil
-    }
-
-    @MainActor
-    private func updateError(_ error: Error) {
-        self.error = error.localizedDescription
-        self.isLoading = false
     }
     
     private func startPolling() {
         timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
-            Task {
+            Task { @MainActor in
                 await self?.fetchPermissions()
             }
         }
     }
     
-    private func stopPolling() {
+    nonisolated private func stopPolling() {
         timer?.invalidate()
-        timer = nil
     }
 }

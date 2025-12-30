@@ -1,5 +1,14 @@
 import SwiftUI
 
+func patternDisplayText(_ pattern: PermissionPattern) -> String {
+    switch pattern {
+    case .string(let string):
+        return string
+    case .array(let array):
+        return array.joined(separator: ", ")
+    }
+}
+
 struct PermissionAlertView: View {
     let permission: Permission
     let onDeny: () -> Void
@@ -51,12 +60,12 @@ struct PermissionAlertView: View {
                     .cornerRadius(8)
                 }
                 
-                if let pattern = permission.pattern, !pattern.isEmpty {
+                if let pattern = permission.pattern {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Pattern")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text(pattern)
+                        Text(patternDisplayText(pattern))
                             .font(.caption.monospaced())
                             .textSelection(.enabled)
                             .padding(8)
@@ -281,12 +290,12 @@ struct PermissionDetailView: View {
                             }
                         }
                         
-                        if let pattern = permission.pattern, !pattern.isEmpty {
+                        if let pattern = permission.pattern {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Pattern")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
-                                Text(pattern)
+                                Text(patternDisplayText(pattern))
                                     .font(.body.monospaced())
                                     .textSelection(.enabled)
                                     .padding(8)
