@@ -24,7 +24,8 @@ struct MessagePart: Identifiable, Codable {
     let file: FilePart?
     let synthetic: Bool?
     let reasoning: String?
-    let tool: ToolPart?
+    let tool: String?  // Tool name (e.g., "bash", "write", "read")
+    let state: ToolState?  // Tool state with input/output - at part level
     let snapshot: String?
     let title: String?
     let metadata: PartMetadata?
@@ -50,23 +51,20 @@ struct MessagePart: Identifiable, Codable {
         let end: Int?
     }
 
-    struct ToolPart: Codable {
-        let command: String?
+    struct ToolState: Codable {
+        let status: String?
+        let input: ToolInput?
         let output: String?
-        let tool: String?
-        let state: ToolState?
-
-        struct ToolState: Codable {
-            let status: String?
-            let input: ToolInput?
-            let output: String?
-        }
-
-        struct ToolInput: Codable {
-            let filePath: String?
-            let offset: Int?
-            let limit: Int?
-        }
+        let title: String?
+    }
+    
+    struct ToolInput: Codable {
+        let filePath: String?
+        let offset: Int?
+        let limit: Int?
+        let command: String?  // Actual command being executed (e.g., "python3 script.py")
+        let description: String?
+        let content: String?  // File content for write operations
     }
 
     struct PartMetadata: Codable {
@@ -94,14 +92,11 @@ struct MessagePart: Identifiable, Codable {
         self.time = try container.decodeIfPresent(PartTime.self, forKey: .time)
         self.callID = try container.decodeIfPresent(String.self, forKey: .callID)
 
-        // Handle tool field - can be string or object
-        if let toolString = try? container.decode(String.self, forKey: .tool) {
-            self.tool = ToolPart(command: toolString, output: nil, tool: toolString, state: nil)
-        } else if let toolObject = try? container.decode(ToolPart.self, forKey: .tool) {
-            self.tool = toolObject
-        } else {
-            self.tool = nil
-        }
+        // Tool is just a string name (e.g., "bash", "write", "read")
+        self.tool = try container.decodeIfPresent(String.self, forKey: .tool)
+        
+        // State contains the tool input/output
+        self.state = try container.decodeIfPresent(ToolState.self, forKey: .state)
     }
 }
 

@@ -49,16 +49,8 @@ class MessageManager: ObservableObject {
 
     // Track streaming state
     private var streamingMessageId: String?
-    private var streamingParts: [String: StreamingPart] = [:]
+    private var streamingPartsJson: [String: [String: Any]] = [:] // partID -> raw JSON dict
     private var userMessageIds: Set<String> = [] // Track user message IDs to avoid duplicates
-    
-    private struct StreamingPart {
-        var id: String
-        var type: String
-        var text: String
-        var messageID: String
-        var sessionID: String
-    }
     
     /// Sends a message and streams incremental updates via SSE
     /// Uses prompt_async + event stream for real-time token streaming
@@ -67,7 +59,7 @@ class MessageManager: ObservableObject {
             Task { @MainActor in
                 isLoading = true
                 streamingMessageId = nil
-                streamingParts = [:]
+                streamingPartsJson = [:]
                 
                 // Track existing user message IDs so we don't duplicate them
                 userMessageIds = Set(messages.filter { $0.role == .user }.map { $0.id })
@@ -124,13 +116,11 @@ class MessageManager: ObservableObject {
                                     print("MessageManager: Text delta (\(delta.count) chars)")
                                 }
                                 
-                                // Update streaming state and UI
+                                // Update streaming state and UI - pass full part data
                                 updateStreamingMessage(
                                     messageID: messageID,
                                     sessionID: sessionID,
-                                    partID: partID,
-                                    partType: partTypeStr,
-                                    fullText: fullText
+                                    partData: partData
                                 )
                                 
                                 contentUpdateId = UUID() // Trigger UI update
@@ -142,7 +132,7 @@ class MessageManager: ObservableObject {
                             // Fetch final state to get complete message with all metadata
                             await refreshMessages(sessionID: sessionID)
                             streamingMessageId = nil
-                            streamingParts = [:]
+                            streamingPartsJson = [:]
                             userMessageIds = []
                             contentUpdateId = UUID()
                             continuation.finish()
@@ -173,7 +163,7 @@ class MessageManager: ObservableObject {
 
                 isLoading = false
                 streamingMessageId = nil
-                streamingParts = [:]
+                streamingPartsJson = [:]
                 userMessageIds = []
                 continuation.finish()
                 print("MessageManager: Stream finished, final message count: \(messages.count)")
@@ -208,15 +198,11 @@ class MessageManager: ObservableObject {
     }
     
     /// Updates the streaming message in the messages array
-    private func updateStreamingMessage(messageID: String, sessionID: String, partID: String, partType: String, fullText: String) {
-        // Update our streaming parts cache
-        streamingParts[partID] = StreamingPart(
-            id: partID,
-            type: partType,
-            text: fullText,
-            messageID: messageID,
-            sessionID: sessionID
-        )
+    private func updateStreamingMessage(messageID: String, sessionID: String, partData: [String: Any]) {
+        guard let partID = partData["id"] as? String else { return }
+        
+        // Store the full part data
+        streamingPartsJson[partID] = partData
         
         // Check if this is a new message
         if streamingMessageId != messageID {
@@ -224,32 +210,15 @@ class MessageManager: ObservableObject {
             print("MessageManager: New streaming message: \(messageID)")
         }
         
-        // Build the message JSON from streaming parts
-        let partsForMessage = streamingParts.values.filter { $0.messageID == messageID }
+        // Build the message from streaming parts
+        let partsForMessage = streamingPartsJson.values.filter { ($0["messageID"] as? String) == messageID }
         
-        var partsJSON = "["
-        for (index, part) in partsForMessage.enumerated() {
-            let escapedText = part.text
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "\"", with: "\\\"")
-                .replacingOccurrences(of: "\n", with: "\\n")
-                .replacingOccurrences(of: "\r", with: "\\r")
-                .replacingOccurrences(of: "\t", with: "\\t")
-            
-            partsJSON += """
-            {
-                "id": "\(part.id)",
-                "sessionID": "\(part.sessionID)",
-                "messageID": "\(part.messageID)",
-                "type": "\(part.type)",
-                "text": "\(escapedText)"
-            }
-            """
-            if index < partsForMessage.count - 1 {
-                partsJSON += ","
-            }
+        // Convert parts to JSON
+        guard let partsData = try? JSONSerialization.data(withJSONObject: Array(partsForMessage)),
+              let partsJsonString = String(data: partsData, encoding: .utf8) else {
+            print("MessageManager: Failed to serialize parts")
+            return
         }
-        partsJSON += "]"
         
         let messageJSON = """
         {
@@ -264,7 +233,7 @@ class MessageManager: ObservableObject {
                 "tokens": { "input": 0, "output": 0, "reasoning": 0, "cache": { "read": 0, "write": 0 } },
                 "cost": 0
             },
-            "parts": \(partsJSON)
+            "parts": \(partsJsonString)
         }
         """
         
