@@ -1,37 +1,61 @@
 import SwiftUI
 
+// PreferenceKey to track scroll position
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 struct ChatView: View {
     let session: Session
     @StateObject private var messageManager = MessageManager()
     @State private var inputText = ""
     @State private var isLoading = false
+    @State private var autoScrollEnabled = true
+    @FocusState private var isInputFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 12) {
-                        if messageManager.messages.isEmpty {
+                    VStack(spacing: 12) {
+                        if messageManager.messages.isEmpty && !isLoading {
                             ContentUnavailableView {
                                 Label("No messages yet", systemImage: "bubble.left.and.bubble.right")
                                     Text("Start a conversation")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                             }
-                        } else {
-                            ForEach(messageManager.messages, id: \.id) { message in
-                                MessageRow(message: message)
-                            }
                         }
+                        
+                        ForEach(messageManager.messages, id: \.id) { message in
+                            MessageRow(message: message)
+                                .id(message.id)
+                        }
+                        
+                        // Invisible anchor at the bottom for scrolling
+                        Color.clear
+                            .frame(height: 1)
+                            .id("bottomAnchor")
                     }
                     .padding()
                 }
-                .onChange(of: messageManager.messages.count) { _ in
-                    if let lastMessage = messageManager.messages.last {
-                        withAnimation {
-                            proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                        }
+                .scrollDismissesKeyboard(.interactively)
+                .onChange(of: messageManager.messages.count) { _, _ in
+                    if autoScrollEnabled {
+                        scrollToBottom(proxy: proxy)
                     }
+                }
+                .onChange(of: messageManager.contentUpdateId) { _, _ in
+                    // Scroll when content updates (streaming) - no animation for smoother updates
+                    if autoScrollEnabled {
+                        scrollToBottom(proxy: proxy, animated: false)
+                    }
+                }
+                .onAppear {
+                    scrollToBottom(proxy: proxy, animated: false)
                 }
             }
 
@@ -41,14 +65,21 @@ struct ChatView: View {
                 TextField("Message", text: $inputText, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(1...6)
+                    .focused($isInputFocused)
+                    .onSubmit {
+                        if !inputText.isEmpty && !isLoading {
+                            performSend()
+                        }
+                    }
 
-                Button(action: sendMessage) {
+                Button(action: performSend) {
                     if isLoading {
                         ProgressView()
                             .progressViewStyle(.circular)
+                            .frame(width: 24, height: 24)
                     } else {
                         Image(systemName: "paperplane.fill")
-                            .foregroundStyle(inputText.isEmpty ? Color.secondary : Color.blue)
+                            .foregroundStyle(inputText.isEmpty ? Color.secondary : Color.accentColor)
                     }
                 }
                 .disabled(inputText.isEmpty || isLoading)
@@ -60,6 +91,16 @@ struct ChatView: View {
             await loadMessages()
         }
     }
+    
+    private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool = true) {
+        if animated {
+            withAnimation(.easeOut(duration: 0.15)) {
+                proxy.scrollTo("bottomAnchor", anchor: .bottom)
+            }
+        } else {
+            proxy.scrollTo("bottomAnchor", anchor: .bottom)
+        }
+    }
 
     private func loadMessages() async {
         do {
@@ -69,59 +110,89 @@ struct ChatView: View {
         }
     }
 
-    private func sendMessage() {
-        guard !inputText.isEmpty else { return }
-
-        isLoading = true
-        let messageText = inputText
+    private func performSend() {
+        guard !inputText.isEmpty, !isLoading else { return }
+        
+        // Capture the text and clear input immediately
+        let messageText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !messageText.isEmpty else { return }
+        
+        // Clear input and set loading state
         inputText = ""
+        isLoading = true
+        autoScrollEnabled = true
+        isInputFocused = false
 
         Task { @MainActor in
             print("ChatView: Starting to send message")
-
-            let userMessageID = "msg_\(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(20))"
-            let partID = "prt_\(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(20))"
-
-            let userMessageJSON = """
-            {
-                "info": {
-                    "id": "\(userMessageID)",
-                    "sessionID": "\(session.id)",
-                    "role": "user",
-                    "time": {
-                        "created": \(Int(Date().timeIntervalSince1970 * 1000))
-                    }
-                },
-                "parts": [
-                    {
-                        "id": "\(partID)",
-                        "sessionID": "\(session.id)",
-                        "messageID": "\(userMessageID)",
-                        "type": "text",
-                        "text": "\(messageText.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\""))"
-                    }
-                ]
-            }
-            """
-
-            if let data = userMessageJSON.data(using: .utf8),
-               let userMessage = try? JSONDecoder().decode(APIResponseMessage.self, from: data) {
-                print("ChatView: Created user message: \(userMessageID)")
+            
+            // Create user message for immediate display
+            let userMessage = createUserMessage(text: messageText)
+            if let userMessage = userMessage {
                 messageManager.messages.append(userMessage)
-                print("ChatView: Current message count after adding user message: \(messageManager.messages.count)")
-            } else {
-                print("ChatView: Failed to create user message")
+                print("ChatView: Added user message, count: \(messageManager.messages.count)")
             }
 
-            let stream = messageManager.sendMessageWithStream(sessionID: session.id, prompt: messageText)
+            // Stream the response
+            let stream = messageManager.sendMessageWithStream(
+                sessionID: session.id,
+                prompt: messageText,
+                directory: session.directory
+            )
 
-            for await message in stream {
-                print("ChatView: Received message \(message.id) with role \(message.role.rawValue)")
-                print("ChatView: Current message count: \(messageManager.messages.count)")
+            for await _ in stream {
+                // Updates are handled by messageManager
             }
 
             print("ChatView: Stream completed")
             isLoading = false
+        }
+    }
+    
+    private func createUserMessage(text: String) -> APIResponseMessage? {
+        let userMessageID = "msg_\(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(20))"
+        let partID = "prt_\(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(20))"
+        
+        // Escape text for JSON
+        let escapedText = text
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r")
+            .replacingOccurrences(of: "\t", with: "\\t")
+
+        let userMessageJSON = """
+        {
+            "info": {
+                "id": "\(userMessageID)",
+                "sessionID": "\(session.id)",
+                "role": "user",
+                "time": {
+                    "created": \(Int(Date().timeIntervalSince1970 * 1000))
+                }
+            },
+            "parts": [
+                {
+                    "id": "\(partID)",
+                    "sessionID": "\(session.id)",
+                    "messageID": "\(userMessageID)",
+                    "type": "text",
+                    "text": "\(escapedText)"
+                }
+            ]
+        }
+        """
+
+        guard let data = userMessageJSON.data(using: .utf8) else {
+            print("ChatView: Failed to create user message data")
+            return nil
+        }
+        
+        do {
+            return try JSONDecoder().decode(APIResponseMessage.self, from: data)
+        } catch {
+            print("ChatView: Failed to decode user message: \(error)")
+            return nil
         }
     }
 }

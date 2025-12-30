@@ -105,21 +105,44 @@ extension OpenCodeAPIClient {
 
                     for try await line in bytes.lines {
                         lineCount += 1
-                        buffer += line + "\n"
-                        print("Line \(lineCount): \(line.prefix(200))")
-
-                        if line.isEmpty && !buffer.isEmpty {
-                            print("Found complete message buffer, length: \(buffer.count)")
+                        print("Line \(lineCount): \(line.prefix(300))")
+                        
+                        // Try to decode each line directly as JSON first (for non-SSE responses)
+                        let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !trimmedLine.isEmpty {
+                            // Check if it's a data: prefixed SSE line
+                            let jsonContent: String
+                            if trimmedLine.hasPrefix("data: ") {
+                                jsonContent = String(trimmedLine.dropFirst(6))
+                            } else if trimmedLine.hasPrefix("{") {
+                                // Direct JSON
+                                jsonContent = trimmedLine
+                            } else {
+                                // Accumulate into buffer for multi-line SSE
+                                buffer += line + "\n"
+                                continue
+                            }
+                            
+                            print("Attempting to decode JSON: \(jsonContent.prefix(100))...")
+                            if let message = try? JSONDecoder().decode(APIResponseMessage.self, from: Data(jsonContent.utf8)) {
+                                print("Successfully decoded message: \(message.id), role: \(message.role.rawValue)")
+                                continuation.yield(message)
+                            } else {
+                                print("Failed to decode message, accumulating in buffer")
+                                buffer += line + "\n"
+                            }
+                        } else if !buffer.isEmpty {
+                            // Empty line signals end of SSE event
+                            print("Found empty line, processing buffer of length: \(buffer.count)")
                             let data = extractData(from: buffer)
                             print("Extracted data: \(data.prefix(100))...")
 
                             if let message = try? JSONDecoder().decode(APIResponseMessage.self, from: Data(data.utf8)) {
-                                print("Successfully decoded message: \(message.id), role: \(message.role.rawValue)")
+                                print("Successfully decoded message from buffer: \(message.id), role: \(message.role.rawValue)")
                                 continuation.yield(message)
                             } else {
-                                print("Failed to decode message from: \(data)")
+                                print("Failed to decode message from buffer: \(data.prefix(200))")
                             }
-
                             buffer = ""
                         }
                     }
@@ -129,13 +152,13 @@ extension OpenCodeAPIClient {
                     if !buffer.isEmpty {
                         print("Processing remaining buffer, length: \(buffer.count)")
                         let data = extractData(from: buffer)
-                        print("Remaining data: \(data.prefix(100))...")
+                        print("Remaining data: \(data.prefix(200))...")
 
                         if let message = try? JSONDecoder().decode(APIResponseMessage.self, from: Data(data.utf8)) {
-                            print("Successfully decoded message from buffer: \(message.id), role: \(message.role.rawValue)")
+                            print("Successfully decoded message from remaining buffer: \(message.id), role: \(message.role.rawValue)")
                             continuation.yield(message)
                         } else {
-                            print("Failed to decode message from buffer")
+                            print("Failed to decode message from remaining buffer")
                         }
                     }
 

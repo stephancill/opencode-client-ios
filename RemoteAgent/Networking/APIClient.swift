@@ -44,7 +44,13 @@ class OpenCodeAPIClient {
 
     private init() {
         let baseURLString = UserDefaults.standard.string(forKey: "baseURL") ?? "https://vps.ts.net"
-        self.baseURL = URL(string: baseURLString)!
+        var urlString = baseURLString
+
+        if urlString.contains("localhost") {
+            urlString = urlString.replacingOccurrences(of: "localhost", with: "127.0.0.1")
+        }
+
+        self.baseURL = URL(string: urlString)!
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 300
