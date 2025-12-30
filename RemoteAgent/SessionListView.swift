@@ -66,11 +66,7 @@ struct SessionsView: View {
     }
 
     private func loadSessionsAsync() async {
-        do {
-            sessionManager.sessions = try await OpenCodeAPIClient.shared.listSessions()
-        } catch {
-            print("Failed to load sessions: \(error)")
-        }
+        await sessionManager.loadSessions()
     }
 }
 

@@ -39,10 +39,7 @@ enum OpenCodeError: LocalizedError {
 class OpenCodeAPIClient {
     static let shared = OpenCodeAPIClient()
 
-    let baseURL: URL
-    private let session: URLSession
-
-    private init() {
+    var baseURL: URL {
         let baseURLString = UserDefaults.standard.string(forKey: "baseURL") ?? "https://vps.ts.net"
         var urlString = baseURLString
 
@@ -50,7 +47,12 @@ class OpenCodeAPIClient {
             urlString = urlString.replacingOccurrences(of: "localhost", with: "127.0.0.1")
         }
 
-        self.baseURL = URL(string: urlString)!
+        return URL(string: urlString) ?? URL(string: "https://vps.ts.net")!
+    }
+
+    private let session: URLSession
+
+    private init() {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 300

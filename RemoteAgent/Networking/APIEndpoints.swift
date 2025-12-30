@@ -198,7 +198,25 @@ extension OpenCodeAPIClient {
             let response: String
         }
         let body = ResponseBody(response: response.rawValue)
-        return try await performRequestWithoutResponse(endpoint: "/session/\(sessionID)/permissions/\(permissionID)", method: .post, body: body, directory: directory)
+        
+        let url = baseURL.appendingPathComponent("/session/\(sessionID)/permissions/\(permissionID)")
+        var request = URLRequest(url: url)
+        request.httpMethod = HTTPMethod.post.rawValue
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.httpBody = try JSONEncoder().encode(body)
+        
+        print("Sending permission response to: \(url)")
+        let (_, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw OpenCodeError.invalidResponse
+        }
+        
+        print("Permission response status: \(httpResponse.statusCode)")
+        guard 200..<300 ~= httpResponse.statusCode else {
+            throw OpenCodeError.httpError(statusCode: httpResponse.statusCode, message: nil)
+        }
     }
 
     func subscribeToGlobalEvents() -> SSEClient {

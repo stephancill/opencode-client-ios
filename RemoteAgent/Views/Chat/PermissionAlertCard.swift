@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PermissionAlertCard: View {
     let permission: Permission
+    let error: String?
     let onDeny: () -> Void
     let onAllowOnce: () -> Void
     let onAllowAlways: () -> Void
@@ -42,6 +43,20 @@ struct PermissionAlertCard: View {
                         }
                     }
                 }
+            }
+
+            if let error = error {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 4)
+                .background(Color.red.opacity(0.1))
+                .cornerRadius(6)
             }
 
             HStack(spacing: 8) {

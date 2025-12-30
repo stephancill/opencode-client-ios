@@ -9,14 +9,17 @@ struct ChatView: View {
     @State private var autoScrollEnabled = true
     @FocusState private var isInputFocused: Bool
     @State private var sendTask: Task<Void, Never>?
+    @State private var permissionError: String?
 
     var body: some View {
         VStack(spacing: 0) {
             if let pendingPermission = permissionManager.pendingPermissions.first(where: { $0.sessionID == session.id }) {
                 PermissionAlertCard(
                     permission: pendingPermission,
+                    error: permissionManager.error,
                     onDeny: {
                         Task {
+                            print("Deny button pressed for permission \(pendingPermission.id)")
                             let _ = await permissionManager.respondToPermission(
                                 sessionID: session.id,
                                 permissionID: pendingPermission.id,
@@ -27,6 +30,7 @@ struct ChatView: View {
                     },
                     onAllowOnce: {
                         Task {
+                            print("Allow Once button pressed for permission \(pendingPermission.id)")
                             let _ = await permissionManager.respondToPermission(
                                 sessionID: session.id,
                                 permissionID: pendingPermission.id,
@@ -37,6 +41,7 @@ struct ChatView: View {
                     },
                     onAllowAlways: {
                         Task {
+                            print("Always Allow button pressed for permission \(pendingPermission.id)")
                             let _ = await permissionManager.respondToPermission(
                                 sessionID: session.id,
                                 permissionID: pendingPermission.id,
@@ -116,6 +121,7 @@ struct ChatView: View {
         .navigationTitle(session.title)
         .task {
             await loadMessages()
+            await permissionManager.fetchPermissions()
         }
     }
 
