@@ -11,13 +11,52 @@ struct ScrollOffsetPreferenceKey: PreferenceKey {
 struct ChatView: View {
     let session: Session
     @StateObject private var messageManager = MessageManager()
+    @StateObject private var permissionManager = PermissionManager.shared
     @State private var inputText = ""
     @State private var isLoading = false
     @State private var autoScrollEnabled = true
     @FocusState private var isInputFocused: Bool
+    @State private var sendTask: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 0) {
+            // Pending Permissions Alert
+            if let pendingPermission = permissionManager.pendingPermissions.first(where: { $0.sessionID == session.id }) {
+                PermissionAlertCard(
+                    permission: pendingPermission,
+                    onDeny: {
+                        Task {
+                            let _ = await permissionManager.respondToPermission(
+                                sessionID: session.id,
+                                permissionID: pendingPermission.id,
+                                response: .reject,
+                                directory: session.directory
+                            )
+                        }
+                    },
+                    onAllowOnce: {
+                        Task {
+                            let _ = await permissionManager.respondToPermission(
+                                sessionID: session.id,
+                                permissionID: pendingPermission.id,
+                                response: .once,
+                                directory: session.directory
+                            )
+                        }
+                    },
+                    onAllowAlways: {
+                        Task {
+                            let _ = await permissionManager.respondToPermission(
+                                sessionID: session.id,
+                                permissionID: pendingPermission.id,
+                                response: .always,
+                                directory: session.directory
+                            )
+                        }
+                    }
+                )
+            }
+
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 12) {
@@ -72,17 +111,16 @@ struct ChatView: View {
                         }
                     }
 
-                Button(action: performSend) {
+                Button(action: isLoading ? cancelRequest : performSend) {
                     if isLoading {
-                        ProgressView()
-                            .progressViewStyle(.circular)
-                            .frame(width: 24, height: 24)
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.red)
                     } else {
                         Image(systemName: "paperplane.fill")
                             .foregroundStyle(inputText.isEmpty ? Color.secondary : Color.accentColor)
                     }
                 }
-                .disabled(inputText.isEmpty || isLoading)
+                .disabled(inputText.isEmpty && !isLoading)
             }
             .padding()
         }
@@ -108,6 +146,24 @@ struct ChatView: View {
         } catch {
             print("Error loading messages: \(error)")
         }
+    }
+
+    private func cancelRequest() {
+        sendTask?.cancel()
+        sendTask = nil
+
+        Task {
+            do {
+                try await OpenCodeAPIClient.shared.abortSession(
+                    sessionID: session.id,
+                    directory: session.directory
+                )
+            } catch {
+                print("Error aborting session: \(error)")
+            }
+        }
+
+        isLoading = false
     }
 
     private func performSend() {
@@ -714,3 +770,110 @@ struct MessagePartRow: View {
         return cleaned
     }
 
+// MARK: - Permission Alert Card
+struct PermissionAlertCard: View {
+    let permission: Permission
+    let onDeny: () -> Void
+    let onAllowOnce: () -> Void
+    let onAllowAlways: () -> Void
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                Image(systemName: permissionIcon(permission.type))
+                    .foregroundStyle(permissionColor(permission.type))
+                    .font(.title2)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Permission Required")
+                        .font(.headline)
+
+                    Text(permission.title)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+
+            Divider()
+
+            if let metadata = permission.metadata {
+                ForEach(Array(metadata.keys.sorted()), id: \.self) { key in
+                    if let value = metadata[key] {
+                        HStack {
+                            Text(key.capitalized)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .frame(width: 80, alignment: .leading)
+
+                            Text(value)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.primary)
+                                .lineLimit(2)
+                        }
+                    }
+                }
+            }
+
+            HStack(spacing: 8) {
+                Button("Deny") {
+                    onDeny()
+                }
+                .buttonStyle(.bordered)
+
+                Button("Allow Once") {
+                    onAllowOnce()
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button("Always Allow") {
+                    onAllowAlways()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+            }
+        }
+        .padding()
+        .background(.regularMaterial)
+        .cornerRadius(12)
+        .shadow(radius: 8)
+        .padding(.horizontal)
+        .padding(.top, 4)
+    }
+
+    private func permissionIcon(_ type: String) -> String {
+        switch type.lowercased() {
+        case "command", "execute", "run":
+            return "terminal"
+        case "file", "read", "write", "edit":
+            return "doc.text"
+        case "network", "http", "request":
+            return "globe"
+        case "system", "shell":
+            return "gear"
+        case "external_directory":
+            return "folder.badge.questionmark"
+        default:
+            return "questionmark.circle"
+        }
+    }
+
+    private func permissionColor(_ type: String) -> Color {
+        switch type.lowercased() {
+        case "command", "execute", "run":
+            return .red
+        case "file", "read":
+            return .blue
+        case "write", "edit":
+            return .orange
+        case "network", "http":
+            return .purple
+        case "system", "shell":
+            return .gray
+        case "external_directory":
+            return .orange
+        default:
+            return .secondary
+        }
+    }
+}

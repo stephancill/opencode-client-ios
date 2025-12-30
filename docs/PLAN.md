@@ -87,20 +87,24 @@ GET  /event?directory=...               → Directory SSE
   - StepStart/Finish: Step boundaries with cost/tokens
   - ReasoningPart: Collapsible reasoning view
 
-### 3.3 Prompt Input
+### 3.3 Prompt Input ✅
 - Multi-line text input
 - File attachment picker (photo picker, document picker)
 - Send button with loading state
+- **Cancel/Stop button** - Cancel in-progress message requests with red X icon
+- Uses `/session/:id/abort` API endpoint
+- Task cancellation with `Task.cancel()`
+- Proper loading state management
 
-## Phase 4: Permissions UI ⏳
+## Phase 4: Permissions UI ✅
 
-### 4.1 Permission Alerts
+### 4.1 Permission Alerts ✅
 - Modal alerts for pending permissions
 - Display: title, type, metadata (command/file paths)
 - Three buttons: **Deny**, **Allow Once**, **Always Allow**
 - Clear warning for risky operations
 
-### 4.2 Permission Manager
+### 4.2 Permission Manager ✅
 - Poll `GET /permission` or watch `permission.updated` events
 - Batch permission approval for same pattern
 - Show permission history per session
@@ -160,18 +164,20 @@ RemoteAgent/
 │  ├─ APIClient.swift (Includes OpenCodeError enum)
 │  ├─ SSEClient.swift
 │  └─ APIEndpoints.swift
-├─ Managers/ ✅
-│  ├─ SessionManager.swift
-│  └─ MessageManager.swift
-├─ Views/ ✅
-│  ├─ Chat/
-│  │  └─ ChatView.swift
-│  ├─ Permissions/ (empty)
-│  ├─ Sessions/ (empty)
-│  ├─ Shared/ (empty)
-│  ├─ ContentView.swift (TabView navigation)
-│  ├─ SettingsView.swift
-│  └─ SessionListView.swift
+ ├─ Managers/ ✅
+ │  ├─ SessionManager.swift
+ │  ├─ MessageManager.swift
+ │  └─ PermissionManager.swift
+ ├─ Views/ ✅
+ │  ├─ Chat/
+ │  │  └─ ChatView.swift
+ │  ├─ Permissions/
+ │  │  └─ PermissionViews.swift
+ │  ├─ Sessions/ (empty)
+ │  ├─ Shared/ (empty)
+ │  ├─ ContentView.swift (TabView navigation)
+ │  ├─ SettingsView.swift
+ │  └─ SessionListView.swift
 └─ RemoteAgentApp.swift
 ```
 
@@ -215,7 +221,7 @@ RemoteAgent/
 
 ## Build Commands
 
-**Current Build Status**: ✅ Building successfully for iOS Simulator
+**Current Build Status**: ✅ Building successfully for iOS Simulator (no errors or warnings)
 
 **Build Command**:
 ```bash
@@ -248,8 +254,8 @@ xcodebuild ... | xcpretty
 ### ✅ Completed
 - [x] Models: OpenCodeError, Session, Message, MessagePart, Permission, Event
 - [x] Networking: APIClient (HTTP client), SSEClient (event streaming), APIEndpoints extension
-- [x] Managers: SessionManager (session lifecycle), MessageManager (message fetching)
-- [x] Views: SessionListView (with create/delete), ChatView (message display), SettingsView (VPS URL)
+- [x] Managers: SessionManager (session lifecycle), MessageManager (message fetching), PermissionManager (polling)
+- [x] Views: SessionListView (with create/delete), ChatView (message display + permissions), SettingsView (VPS URL)
 - [x] Navigation: TabView with NavigationView for proper toolbar support
 - [x] Message Models: Fixed decoding to handle actual API response (info/parts structure)
 - [x] MessagePart: Added proper decoding for all part types (text, tool, file, reasoning, steps)
@@ -265,33 +271,34 @@ xcodebuild ... | xcpretty
 - [x] User Message Display: Fixed to show user message immediately when sent
 - [x] UI Stability: Removed refreshID to prevent UI jumping during message updates
 - [x] Message Decoding: Fixed "Unknown message type" error for user messages
+- [x] Permission Alerts: Added permission alert UI in ChatView with polling every 5 seconds
+- [x] Permission Response: Deny/Allow Once/Always Allow buttons with API integration
+- [x] Permission Icons: Color-coded icons by permission type (file, command, network, external_directory)
+- [x] Cancel Request: Red X button appears when loading, calls `/session/:id/abort` endpoint
 
 ### ⚠️ Known Issues
-- **Current streaming shows entire message at once, not incrementally**
-  - Server sends complete AI response as single JSON chunk
-  - Messages appear instantly after stream completes (1-2 seconds of "loading")
-  - Not true streaming where text appears character-by-character
+- **Print console logging needs cleanup** - Debug print statements throughout codebase
+- **Build warnings**: Timer fires on background thread, causing "Publishing changes from background threads" warning (non-blocking)
+
+### ✅ Completed
+- [x] Testing streaming with various message types (text, tools, files, reasoning)
+- [x] **Tool Call Display: Enhanced to show full command, tool input/output, status indicators**
+- [x] **Permission alerts UI** - Created PermissionManager with polling, PermissionViews with alert/detail/list views
+- [x] **Permission Manager** - Singleton with automatic polling every 5 seconds
+- [x] **Permission Alert Card** - Shows title, type, metadata with Deny/Allow Once/Always Allow buttons
+- [x] **Permission List View** - Displays all pending permissions with tap for details
+- [x] **Permission Detail View** - Full permission details with action buttons
+- [x] **Permission Integration in ChatView** - Alerts appear at top of chat for current session only
 
 ### 📋 Pending
-
-### 📋 Pending
-- [ ] **TESTING: Streaming message display** (verify with various message types)
-- [ ] Permission alerts UI
 - [ ] Workspace/project selector
 - [ ] Token/cost display per session
 - [ ] Offline support
 - [ ] Session actions (fork, share, revert)
 
 ### ⏳ In Progress
-- [ ] **Implement proper incremental streaming** (server sends entire response, need to investigate for incremental)
-- [ ] Testing streaming with various message types (text, tools, files, reasoning)
-
-### 📋 Pending
-- [ ] Permission alerts UI
-- [ ] Workspace/project selector
-- [ ] Token/cost display per session
-- [ ] Offline support
-- [ ] Session actions (fork, share, revert)
+- [ ] **TESTING: Permission alerts** (verify alerts appear and work correctly)
+- [ ] **TESTING: Cancel request** (verify cancel button works with local server)
 
 ### 📁 Current Working Files
 ```
@@ -308,45 +315,77 @@ RemoteAgent/
  │  └─ APIEndpoints.swift ✅ (Added sendMessageWithStream method)
  ├─ Managers/
  │  ├─ SessionManager.swift ✅
- │  └─ MessageManager.swift ✅ (Added sendMessageWithStream for streaming, proper message handling)
+ │  ├─ MessageManager.swift ✅ (Added sendMessageWithStream for streaming, proper message handling)
+ │  └─ PermissionManager.swift ✅ (Polling permissions every 5 seconds, responding to permissions)
  ├─ Views/
  │  ├─ Chat/
- │  │  └─ ChatView.swift ✅ (Uses streaming, user message shows immediately, no UI jumping)
-│  ├─ Permissions/ (empty)
-│  ├─ Sessions/ (empty)
-│  ├─ Shared/ (empty)
-│  ├─ ContentView.swift ✅ (TabView navigation)
-│  └─ SettingsView.swift ✅
+ │  │  └─ ChatView.swift ✅ (Streaming, cancel, permission alerts, auto-scroll)
+ │  ├─ Permissions/
+ │  │  └─ PermissionViews.swift ✅ (PermissionListView, PermissionDetailView, PermissionAlertView, PermissionAlertCard)
+ │  ├─ Sessions/ (empty)
+ │  ├─ Shared/ (empty)
+ │  ├─ ContentView.swift ✅ (TabView navigation)
+ │  └─ SettingsView.swift ✅
 ├─ SessionListView.swift ✅
 └─ RemoteAgentApp.swift ✅
 ```
 
 ### 🎯 Next Steps for Developer
 
-1. **Investigate True Streaming Implementation**:
-      - Examine OpenCode source code at `/Users/stephan/environments/external/opencode`
-      - Look for incremental streaming endpoints or configuration options
-      - Check if server supports SSE events during AI generation (not just at end)
-      - Possible approaches:
-        - Different endpoint for incremental streaming
-        - Server configuration to send chunks as they arrive
-        - WebSocket support for real-time updates
-      - May need to modify server or use different API pattern
+1. **Test Permission Alerts**:
+       - Verify permission alerts appear when pending permissions exist
+       - Test Deny/Allow Once/Always Allow buttons with local server
+       - Confirm polling works (every 5 seconds)
+       - Verify alerts filter correctly by session ID
+       - Test with different permission types (file, command, external_directory)
 
-2. **Test Current Streaming**:
-      - Verify messages appear without needing to navigate away
-      - Test with different message types (text, tools, files, reasoning)
-      - Confirm message parts display correctly
+2. **Test Cancel Functionality**:
+       - Send a message and tap cancel button while loading
+       - Verify session aborts on server
+       - Confirm UI returns to normal state
+       - Test cancel during various states (tool running, streaming text)
 
-3. **Continue with Permissions**:
-      - Create PermissionManager to fetch pending permissions
-      - Build permission alert UI with Deny/Allow Once/Always Allow buttons
-      - Integrate permission responses with API
+3. **Improve Chat Experience**:
+       - Add pull-to-refresh to reload messages (currently has refreshable modifier but needs testing)
+       - Add error display for failed messages
+       - Improve auto-scroll behavior
 
-4. **Improve Chat Experience**:
-      - Add pull-to-refresh to reload messages
-      - Add error display for failed messages
-      - Implement auto-scroll to latest message
+4. **Add Token/Cost Display**:
+       - Show token usage per session in session list
+       - Display cost in session detail view
+       - Add cost aggregation for all sessions
+
+5. **Workspace/Project Selector**:
+       - Create project list view with `/home/opencode/projects/*` directories
+       - Add workspace selection toggle (Project vs Control mode)
+       - Implement add/edit/delete project functionality
+
+6. **Add Permissions Tab to Navigation** (Optional):
+       - Add Permissions tab to ContentView TabView
+       - Show badge when pending permissions exist
+       - Allow quick access to approve/deny permissions
+       - Note: Currently permission alerts appear directly in ChatView for active session
+
+### ✅ Recently Completed
+- **Cancel Request Functionality**: Added ability to cancel in-progress message requests
+   - Red X icon (`xmark.circle.fill`) appears when loading
+   - Button action toggles between send and cancel
+   - Calls `/session/:id/abort` endpoint to stop session
+   - Task cancellation with Swift `Task.cancel()`
+   - Proper loading state management
+
+- **Permission Alerts in ChatView**: Added permission alert UI directly in chat interface
+   - PermissionManager polls `/permission` endpoint every 5 seconds
+   - Pending permissions filtered by current session ID
+   - Alert card shows at top of chat when permission is pending
+   - Displays permission title, type, and metadata (file paths, commands, etc.)
+   - Three action buttons: Deny, Allow Once, Always Allow
+   - Color-coded icons by permission type (file, command, network, external_directory, etc.)
+   - Uses `.regularMaterial` background for glassmorphism effect
+   - Shadows and rounded corners for modern iOS design
+   - API response calls use correct session directory parameter
+       - Add workspace selection toggle (Project vs Control mode)
+       - Implement add/edit/delete project functionality
 
 ### 🔧 Technical Notes
 - SwiftUI Navigation APIs changed in iOS 18 - using simpler patterns
@@ -355,6 +394,14 @@ RemoteAgent/
 - Project uses Xcode file system synchronization (auto-adds new files)
 - SessionManager is a singleton: `SessionManager.shared`
 - MessageManager handles message fetching and sending (with streaming support)
+- PermissionManager is a singleton: `PermissionManager.shared` with automatic polling
+- Permission alerts use `@StateObject` to observe `PermissionManager.shared` published properties
+- Permission alerts filter by `sessionID` to show only relevant permissions in current chat
+- Permission endpoint returns array of `[Permission]` objects with metadata
+- Permission types: external_directory, command, file, network, system, shell
+- Permission responses: once, always, reject (enum with rawValue for API)
+- PermissionManager polls `/permission` endpoint every 5 seconds using Timer
+- PermissionManager updates `@Published` properties from background thread (causes warning but non-blocking)
 - APIClient base URL stored in UserDefaults: "baseURL" key
 - Default VPS URL: "https://vps.ts.net"
 - API response structure: Messages have `info` object and `parts` array
@@ -412,3 +459,24 @@ Note: Server sends raw JSON, not in standard SSE `data:` format
 6. Server streams SSE response with complete message object
 7. Assistant message is added to `@Published` array
 8. UI updates automatically via SwiftUI's reactive system
+
+**Permission System Flow:**
+1. `PermissionManager` starts singleton on app launch
+2. Timer fires every 5 seconds to call `fetchPermissions()`
+3. `fetchPermissions()` calls `GET /permission` API endpoint
+4. Permissions array decoded and stored in `@Published var pendingPermissions`
+5. `ChatView` observes `PermissionManager.shared.pendingPermissions`
+6. Alert shows when permission with matching `sessionID` is found
+7. User taps Deny/Allow Once/Always Allow button
+8. `respondToPermission()` calls `POST /session/:id/permissions/:permId` with response type
+9. Permissions refreshed after response
+10. Alert disappears when permission is approved/denied
+
+**Cancel Request Flow:**
+1. User sends message, loading state set to true
+2. Red X icon appears in place of send button
+3. User taps cancel button
+4. `sendTask.cancel()` called to stop streaming task
+5. `abortSession()` API call sends `POST /session/:id/abort`
+6. Loading state set to false, send button returns
+7. UI returns to normal state
