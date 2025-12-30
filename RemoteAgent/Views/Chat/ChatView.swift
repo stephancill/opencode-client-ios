@@ -5,7 +5,6 @@ struct ChatView: View {
     @StateObject private var messageManager = MessageManager()
     @State private var inputText = ""
     @State private var isLoading = false
-    @State private var refreshID = UUID()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,7 +25,6 @@ struct ChatView: View {
                         }
                     }
                     .padding()
-                    .id(refreshID)
                 }
                 .onChange(of: messageManager.messages.count) { _ in
                     if let lastMessage = messageManager.messages.last {
@@ -79,25 +77,50 @@ struct ChatView: View {
         inputText = ""
 
         Task { @MainActor in
-            do {
-                _ = try await messageManager.sendMessage(sessionID: session.id, prompt: messageText)
+            print("ChatView: Starting to send message")
 
-                for i in 0..<30 {
-                    try await Task.sleep(nanoseconds: 1_000_000_000)
+            let userMessageID = "msg_\(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(20))"
+            let partID = "prt_\(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(20))"
 
-                    try await messageManager.fetchMessages(sessionID: session.id)
-                    refreshID = UUID()
-                    print("Poll iteration \(i): fetched \(messageManager.messages.count) messages")
-
-                    if messageManager.messages.last?.role == .assistant {
-                        print("Assistant response received!")
-                        break
+            let userMessageJSON = """
+            {
+                "info": {
+                    "id": "\(userMessageID)",
+                    "sessionID": "\(session.id)",
+                    "role": "user",
+                    "time": {
+                        "created": \(Int(Date().timeIntervalSince1970 * 1000))
                     }
-                }
-            } catch {
-                print("Error sending message: \(error)")
-                inputText = messageText
+                },
+                "parts": [
+                    {
+                        "id": "\(partID)",
+                        "sessionID": "\(session.id)",
+                        "messageID": "\(userMessageID)",
+                        "type": "text",
+                        "text": "\(messageText.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\""))"
+                    }
+                ]
             }
+            """
+
+            if let data = userMessageJSON.data(using: .utf8),
+               let userMessage = try? JSONDecoder().decode(APIResponseMessage.self, from: data) {
+                print("ChatView: Created user message: \(userMessageID)")
+                messageManager.messages.append(userMessage)
+                print("ChatView: Current message count after adding user message: \(messageManager.messages.count)")
+            } else {
+                print("ChatView: Failed to create user message")
+            }
+
+            let stream = messageManager.sendMessageWithStream(sessionID: session.id, prompt: messageText)
+
+            for await message in stream {
+                print("ChatView: Received message \(message.id) with role \(message.role.rawValue)")
+                print("ChatView: Current message count: \(messageManager.messages.count)")
+            }
+
+            print("ChatView: Stream completed")
             isLoading = false
         }
     }

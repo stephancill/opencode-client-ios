@@ -1,5 +1,12 @@
 # iOS Client Implementation Plan
 
+## 🚨 IMPORTANT: Development Protocol
+**NEVER install or run the app yourself - ALWAYS ask user to run it in Xcode**
+- Do not use `xcrun simctl install` or `xcrun simctl launch`
+- Do not run `xcodebuild` with install/launch commands
+- After making changes, simply build and ask user to test in Xcode
+- This ensures user maintains control and avoids simulator conflicts
+
 ## Architecture Overview
 **MVVM + SwiftUI** with modular components:
 - **Network Layer**: API client with SSE support
@@ -251,17 +258,37 @@ xcodebuild ... | xcpretty
 - [x] Build: Successfully building for iOS Simulator
 - [x] Send Message: Fixed timeout issue by using async `/session/:id/prompt_async` endpoint
 - [x] Message Polling: Added polling logic to wait for assistant response after sending
+- [x] SSE Streaming: Rewrote SSEClient to use `URLSession.bytes` for true streaming
+- [x] Streaming Endpoint: Added `sendMessageWithStream()` to API client using `POST /session/:id/message`
+- [x] Message Manager: Added streaming support with `sendMessageWithStream()` method
+- [x] ChatView: Updated to use streaming instead of polling
+- [x] User Message Display: Fixed to show user message immediately when sent
+- [x] UI Stability: Removed refreshID to prevent UI jumping during message updates
+- [x] Message Decoding: Fixed "Unknown message type" error for user messages
 
 ### ⚠️ Known Issues
-- Polling approach is unreliable - sometimes shows incomplete messages
-- Need to implement streaming for real-time message updates
+- **Current streaming shows entire message at once, not incrementally**
+  - Server sends complete AI response as single JSON chunk
+  - Messages appear instantly after stream completes (1-2 seconds of "loading")
+  - Not true streaming where text appears character-by-character
 
 ### 📋 Pending
-- [ ] **URGENT: Implement streaming message display** (replace polling)
+
+### 📋 Pending
+- [ ] **TESTING: Streaming message display** (verify with various message types)
 - [ ] Permission alerts UI
 - [ ] Workspace/project selector
-- [ ] Real-time SSE integration for live message updates
-- [ ] Message streaming display
+- [ ] Token/cost display per session
+- [ ] Offline support
+- [ ] Session actions (fork, share, revert)
+
+### ⏳ In Progress
+- [ ] **Implement proper incremental streaming** (server sends entire response, need to investigate for incremental)
+- [ ] Testing streaming with various message types (text, tools, files, reasoning)
+
+### 📋 Pending
+- [ ] Permission alerts UI
+- [ ] Workspace/project selector
 - [ ] Token/cost display per session
 - [ ] Offline support
 - [ ] Session actions (fork, share, revert)
@@ -275,16 +302,16 @@ RemoteAgent/
 │  ├─ Message.swift ✅ (Full API response structure support)
 │  ├─ Permission.swift ✅
 │  └─ Event.swift ✅
-├─ Networking/
-│  ├─ APIClient.swift ✅ (Includes OpenCodeError enum)
-│  ├─ SSEClient.swift ✅
-│  └─ APIEndpoints.swift ✅
-├─ Managers/
-│  ├─ SessionManager.swift ✅
-│  └─ MessageManager.swift ✅
-├─ Views/
-│  ├─ Chat/
-│  │  └─ ChatView.swift ✅
+ ├─ Networking/
+ │  ├─ APIClient.swift ✅ (Includes OpenCodeError enum)
+ │  ├─ SSEClient.swift ✅ (Now uses URLSession.bytes for true streaming)
+ │  └─ APIEndpoints.swift ✅ (Added sendMessageWithStream method)
+ ├─ Managers/
+ │  ├─ SessionManager.swift ✅
+ │  └─ MessageManager.swift ✅ (Added sendMessageWithStream for streaming, proper message handling)
+ ├─ Views/
+ │  ├─ Chat/
+ │  │  └─ ChatView.swift ✅ (Uses streaming, user message shows immediately, no UI jumping)
 │  ├─ Permissions/ (empty)
 │  ├─ Sessions/ (empty)
 │  ├─ Shared/ (empty)
@@ -296,27 +323,30 @@ RemoteAgent/
 
 ### 🎯 Next Steps for Developer
 
-1. **Implement Streaming Message Display** (URGENT):
-     - Use `POST /session/:sessionID/message` streaming endpoint instead of polling
-     - Parse SSE (Server-Sent Events) for streaming message updates
-     - Update UI in real-time as assistant generates response
-     - Handle partial messages and streaming text updates
-     - Show loading indicator while streaming
+1. **Investigate True Streaming Implementation**:
+      - Examine OpenCode source code at `/Users/stephan/environments/external/opencode`
+      - Look for incremental streaming endpoints or configuration options
+      - Check if server supports SSE events during AI generation (not just at end)
+      - Possible approaches:
+        - Different endpoint for incremental streaming
+        - Server configuration to send chunks as they arrive
+        - WebSocket support for real-time updates
+      - May need to modify server or use different API pattern
 
-2. **Debug Streaming Issues**:
-     - Check Xcode console for streaming errors
-     - Verify SSE parsing handles all message part types correctly
-     - Test with different message types (text, tools, files)
+2. **Test Current Streaming**:
+      - Verify messages appear without needing to navigate away
+      - Test with different message types (text, tools, files, reasoning)
+      - Confirm message parts display correctly
 
 3. **Continue with Permissions**:
-     - Create PermissionManager to fetch pending permissions
-     - Build permission alert UI with Deny/Allow Once/Always Allow buttons
-     - Integrate permission responses with API
+      - Create PermissionManager to fetch pending permissions
+      - Build permission alert UI with Deny/Allow Once/Always Allow buttons
+      - Integrate permission responses with API
 
 4. **Improve Chat Experience**:
-     - Add pull-to-refresh to reload messages
-     - Add error display for failed messages
-     - Implement auto-scroll to latest message
+      - Add pull-to-refresh to reload messages
+      - Add error display for failed messages
+      - Implement auto-scroll to latest message
 
 ### 🔧 Technical Notes
 - SwiftUI Navigation APIs changed in iOS 18 - using simpler patterns
@@ -324,7 +354,7 @@ RemoteAgent/
 - All model types compile cleanly
 - Project uses Xcode file system synchronization (auto-adds new files)
 - SessionManager is a singleton: `SessionManager.shared`
-- MessageManager handles message fetching and sending
+- MessageManager handles message fetching and sending (with streaming support)
 - APIClient base URL stored in UserDefaults: "baseURL" key
 - Default VPS URL: "https://vps.ts.net"
 - API response structure: Messages have `info` object and `parts` array
@@ -332,32 +362,53 @@ RemoteAgent/
 - Error handling includes detailed logging for debugging
 - Timestamps from API are in milliseconds, converted to Date objects
 
-### 📊 Streaming Implementation Plan (POLLING REPLACEMENT)
-**Problem with Current Polling:**
-- `POST /session/:id/prompt_async` returns immediately (204), but polling is unreliable
-- Messages may be incomplete when first returned by `GET /session/:id/message`
+### 📊 Streaming Implementation (CURRENT STATE)
+**Previous Problem with Polling:**
+- `POST /session/:id/prompt_async` returns immediately (204), but polling was unreliable
+- Messages were incomplete when first returned by `GET /session/:id/message`
 - Race conditions between message creation and part updates
 - UI updates not triggered consistently despite `@Published` properties
-- Requires user to navigate away and back to see complete messages
+- Required user to navigate away and back to see complete messages
 
-**Solution: Use Streaming Endpoint**
+**Current Solution: Endpoint Streaming**
 - Endpoint: `POST /session/:sessionID/message` (streaming)
 - Returns: SSE stream with complete message object when response completes
-- Flow: Send prompt → Stream response → Update UI in real-time
+- Flow: Send prompt → Stream response → Update UI
 
-**Implementation Approach:**
-1. Update `SSEClient` to use `URLSession.bytes(for: request)` for true streaming
-2. Parse SSE data incrementally as it arrives (not at end of response)
-3. Use `AsyncThrowingStream` to yield decoded messages
-4. Update `MessageManager` to add messages as they arrive
-5. Show real-time loading indicator while streaming
+**Implementation Details:**
+1. ✅ Updated `SSEClient` to use `URLSession.bytes(for: request)` for true streaming
+2. ✅ Parse SSE data incrementally as it arrives (not at end of response)
+3. ✅ Use `AsyncThrowingStream` to yield decoded messages
+4. ✅ Added `sendMessageWithStream()` method to API client
+5. ✅ Updated `MessageManager` to add messages as they arrive
+6. ✅ Updated `ChatView` to consume streaming messages
+7. ✅ Fixed user message display (shows immediately when sent)
+8. ✅ Removed `refreshID` to prevent UI jumping
 
-**Current SSE Client Issue:**
-- Existing `SSEClient` uses `dataTask` which waits for complete response
-- Not truly streaming - receives data all at once
-- Needs to be rewritten using `URLSession.bytes(for: request)` for proper streaming
+**Current Behavior:**
+- User message appears immediately in UI when sent
+- Server waits for complete AI response before sending
+- Entire response arrives as single JSON chunk (not incremental)
+- UI shows "loading" for 1-2 seconds (AI generation time)
+- Complete assistant message appears all at once
+
+**Not Yet Implemented: True Incremental Streaming**
+- Server sends complete message object, not character-by-character chunks
+- Would require examining OpenCode source to find incremental streaming endpoint
+- Or server modification to send SSE events as text generates
 
 **SSE Format (from server):**
 ```
-data: {"info": {...}, "parts": [...]}
+{"info": {...}, "parts": [...]}
 ```
+Note: Server sends raw JSON, not in standard SSE `data:` format
+
+**Message Flow:**
+1. User sends prompt via `ChatView.sendMessage()`
+2. User message created and added to `@Published` array immediately
+3. `MessageManager.sendMessageWithStream()` creates streaming connection
+4. API client sends POST request to `/session/:id/message`
+5. Server waits for AI response completion
+6. Server streams SSE response with complete message object
+7. Assistant message is added to `@Published` array
+8. UI updates automatically via SwiftUI's reactive system
