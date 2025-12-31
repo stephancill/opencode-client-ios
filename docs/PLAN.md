@@ -484,6 +484,7 @@ Note: Server sends raw JSON, not in standard SSE `data:` format
 ## User Added Todos
 
 ### High Priority
+- new session shouldn't prompt for title and should just go directly to chat with default name (server has automatic naming logic)
 - fix streaming for when clicking into existing sessions that are busy
 - skeleton loading states for session list and chat view
 - improve handling of existing sessions with many messages
