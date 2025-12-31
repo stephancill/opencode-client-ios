@@ -487,3 +487,6 @@ Note: Server sends raw JSON, not in standard SSE `data:` format
 - fix streaming for when clicking into existing sessions that are busy
 - skeleton loading states for session list and chat view
 - improve handling of existing sessions with many messages
+- @ mentions for projects and files
+- markdown support
+- show code edits
