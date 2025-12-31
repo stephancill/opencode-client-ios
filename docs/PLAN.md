@@ -480,3 +480,10 @@ Note: Server sends raw JSON, not in standard SSE `data:` format
 5. `abortSession()` API call sends `POST /session/:id/abort`
 6. Loading state set to false, send button returns
 7. UI returns to normal state
+
+## User Added Todos
+
+### High Priority
+- fix streaming for when clicking into existing sessions that are busy
+- skeleton loading states for session list and chat view
+- improve handling of existing sessions with many messages
