@@ -253,7 +253,11 @@ class MessageManager: ObservableObject {
     }
 
     func startEventListener(sessionID: String, directory: String?) {
-        stopEventListener()
+        // Only start if not already listening to this session
+        if eventListenerTask != nil {
+            print("MessageManager: Event listener already running, stopping first")
+            stopEventListener()
+        }
 
         eventListenerTask = Task { @MainActor in
             print("MessageManager: Starting event listener for session \(sessionID)")
@@ -285,7 +289,8 @@ class MessageManager: ObservableObject {
                            let partID = part["id"] as? String {
                             print("MessageManager: Part updated: \(partID) for message \(messageID)")
 
-                            await self.handlePartUpdate(part: part, messageID: messageID, sessionID: sessionID)
+                            // Handle streaming for existing messages that might be in progress
+                            await self.handleStreamingPartUpdate(part: part, messageID: messageID, sessionID: sessionID)
                         }
 
                     case "session.status":
@@ -296,6 +301,8 @@ class MessageManager: ObservableObject {
 
                     case "session.idle":
                         print("MessageManager: Session is now idle")
+                        // Refresh messages when session becomes idle to get final state
+                        try? await fetchMessages(sessionID: sessionID)
 
                     case "session.updated":
                         print("MessageManager: Session updated")
@@ -333,6 +340,32 @@ class MessageManager: ObservableObject {
 
         print("MessageManager: Refreshing messages for session \(sessionID)")
         try? await fetchMessages(sessionID: sessionID)
+    }
+
+    /// Handle streaming part updates for existing sessions (not initiated by this client)
+    private func handleStreamingPartUpdate(part: [String: Any], messageID: String, sessionID: String) async {
+        print("MessageManager: Handling streaming part update for existing message \(messageID)")
+        
+        // Skip user messages (should already be loaded)
+        if let existingMessage = messages.first(where: { $0.id == messageID }), existingMessage.role == .user {
+            print("MessageManager: Skipping user message update")
+            return
+        }
+        
+        // Use the same logic as sendMessageWithStream for streaming updates
+        if let text = part["text"] as? String {
+            print("MessageManager: Streaming text update: \(text.count) characters")
+        }
+        
+        if let delta = part["delta"] as? String {
+            print("MessageManager: Streaming delta: \(delta.count) characters")
+        }
+        
+        // For existing sessions, refresh messages to get latest state rather than building streaming temp message
+        // This ensures we get complete message data including metadata
+        print("MessageManager: Refreshing messages due to streaming update")
+        try? await fetchMessages(sessionID: sessionID)
+        contentUpdateId = UUID() // Trigger UI update
     }
 
     func stopEventListener() {

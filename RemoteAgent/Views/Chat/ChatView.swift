@@ -122,6 +122,13 @@ struct ChatView: View {
         .task {
             await loadMessages()
             await permissionManager.fetchPermissions()
+            
+            // Start event listener to catch streaming updates for existing sessions
+            messageManager.startEventListener(sessionID: session.id, directory: session.directory)
+        }
+        .onDisappear {
+            // Stop event listener when leaving the session
+            messageManager.stopEventListener()
         }
     }
 
