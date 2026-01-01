@@ -8,9 +8,7 @@ struct MessagePartRow: View {
         switch part.type {
         case .text:
             if let text = part.text {
-                Text(text)
-                    .font(.body)
-                    .textSelection(.enabled)
+                MarkdownView(content: text)
             }
 
         case .file:
@@ -453,8 +451,7 @@ struct GenericPartView: View {
                     .foregroundStyle(.secondary)
             }
             if let text = part.text {
-                Text(text)
-                    .font(.body)
+                MarkdownView(content: text)
             }
         }
         .padding(8)

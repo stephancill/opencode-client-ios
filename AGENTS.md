@@ -401,6 +401,7 @@ RemoteAgent/
 - Permission responses: once, always, reject (enum with rawValue for API)
 - PermissionManager polls `/permission` endpoint every 5 seconds using Timer
 - PermissionManager updates `@Published` properties from background thread (causes warning but non-blocking)
+- Markdown Support: Added MarkdownView component using native iOS Text(LocalizedStringKey) for rendering markdown content in text messages and generic parts
 - APIClient base URL stored in UserDefaults: "baseURL" key
 - Default VPS URL: "https://vps.ts.net"
 - API response structure: Messages have `info` object and `parts` array
@@ -484,9 +485,9 @@ Note: Server sends raw JSON, not in standard SSE `data:` format
 
 ### High Priority
 - ~~new session shouldn't prompt for title and should just go directly to chat with default name (server has automatic naming logic)~~ ✅
+- ~~markdown support~~ ✅
 - fix streaming for when clicking into existing sessions that are busy
 - skeleton loading states for session list and chat view
 - improve handling of existing sessions with many messages
 - @ mentions for projects and files
-- markdown support
 - show code edits
