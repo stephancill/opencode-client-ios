@@ -225,17 +225,16 @@ RemoteAgent/
 
 **Build Command**:
 ```bash
-xcodebuild -scheme RemoteAgent -sdk iphonesimulator -destination 'id=E7110220-3CF1-4A97-BFCC-D371846B068E' build
+xcodebuild -scheme RemoteAgent -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 16 Pro' build
 ```
 
 **Clean Build (if needed)**:
 ```bash
 rm -rf ~/Library/Developer/Xcode/DerivedData/RemoteAgent-*
-xcodebuild -scheme RemoteAgent -sdk iphonesimulator -destination 'id=E7110220-3CF1-4A97-BFCC-D371846B068E' build
+xcodebuild -scheme RemoteAgent -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 16 Pro' build
 ```
 
 **Deployment Target**: iOS 18.0
-**Simulator Device**: iPhone 16 Pro
 
 **Install xcpretty for readable output** (optional):
 ```bash
@@ -484,7 +483,7 @@ Note: Server sends raw JSON, not in standard SSE `data:` format
 ## User Added Todos
 
 ### High Priority
-- new session shouldn't prompt for title and should just go directly to chat with default name (server has automatic naming logic)
+- ~~new session shouldn't prompt for title and should just go directly to chat with default name (server has automatic naming logic)~~ ✅
 - fix streaming for when clicking into existing sessions that are busy
 - skeleton loading states for session list and chat view
 - improve handling of existing sessions with many messages

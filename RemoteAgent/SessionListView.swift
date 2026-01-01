@@ -2,57 +2,65 @@ import SwiftUI
 
 struct SessionsView: View {
     @StateObject private var sessionManager = SessionManager.shared
-    @State private var showingCreateAlert = false
-    @State private var newSessionTitle = ""
     @State private var isLoading = false
+    @State private var isCreatingSession = false
+    @State private var navigationPath = NavigationPath()
 
     var body: some View {
-        List {
-            if isLoading {
-                ProgressView("Loading sessions...")
-            } else if sessionManager.sessions.isEmpty {
-                ContentUnavailableView {
-                    Label("No sessions yet", systemImage: "tray")
-                        Text("Tap + to create a new session")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                }
-            } else {
-                ForEach(sessionManager.sessions) { session in
-                    NavigationLink {
-                        ChatView(session: session)
-                    } label: {
-                        SessionRow(session: session)
+        NavigationStack(path: $navigationPath) {
+            List {
+                if isLoading {
+                    ProgressView("Loading sessions...")
+                } else if sessionManager.sessions.isEmpty {
+                    ContentUnavailableView {
+                        Label("No sessions yet", systemImage: "tray")
+                            Text("Tap + to create a new session")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                    }
+                } else {
+                    ForEach(sessionManager.sessions) { session in
+                        NavigationLink(value: session) {
+                            SessionRow(session: session)
+                        }
                     }
                 }
             }
-        }
-        .navigationTitle("Sessions")
-        .onAppear {
-            loadSessions()
-        }
-        .refreshable {
-            await loadSessionsAsync()
-        }
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    showingCreateAlert = true
-                } label: {
-                    Image(systemName: "plus")
+            .navigationTitle("Sessions")
+            .navigationDestination(for: Session.self) { session in
+                ChatView(session: session)
+            }
+            .onAppear {
+                loadSessions()
+            }
+            .refreshable {
+                await loadSessionsAsync()
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        createNewSession()
+                    } label: {
+                        if isCreatingSession {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "plus")
+                        }
+                    }
+                    .disabled(isCreatingSession)
                 }
             }
         }
-        .alert("New Session", isPresented: $showingCreateAlert) {
-            TextField("Title", text: $newSessionTitle)
-
-            Button("Cancel", role: .cancel) { }
-
-            Button("Create") {
-                Task {
-                    await sessionManager.createSession(title: newSessionTitle.isEmpty ? nil : newSessionTitle)
-                    newSessionTitle = ""
-                }
+    }
+    
+    private func createNewSession() {
+        isCreatingSession = true
+        Task {
+            await sessionManager.createSession(title: nil)
+            isCreatingSession = false
+            // Navigate to the newly created session
+            if let newSession = sessionManager.currentSession {
+                navigationPath.append(newSession)
             }
         }
     }

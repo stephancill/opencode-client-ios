@@ -3,12 +3,10 @@ import SwiftUI
 struct ContentView: View {
     var body: some View {
         TabView {
-            NavigationView {
-                SessionsView()
-            }
-            .tabItem {
-                Label("Sessions", systemImage: "tray")
-            }
+            SessionsView()
+                .tabItem {
+                    Label("Sessions", systemImage: "tray")
+                }
 
             Text("Projects View")
                 .tabItem {
