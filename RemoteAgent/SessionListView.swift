@@ -10,7 +10,11 @@ struct SessionsView: View {
         NavigationStack(path: $navigationPath) {
             List {
                 if isLoading {
-                    ProgressView("Loading sessions...")
+                    ForEach(0..<5, id: \.self) { _ in
+                        SessionSkeletonView()
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                    }
                 } else if sessionManager.sessions.isEmpty {
                     ContentUnavailableView {
                         Label("No sessions yet", systemImage: "tray")
@@ -36,6 +40,25 @@ struct SessionsView: View {
             .refreshable {
                 await loadSessionsAsync()
             }
+            .overlay(
+                Group {
+                    if isCreatingSession {
+                        VStack {
+                            Spacer()
+                            HStack {
+                                Spacer()
+                                ProgressView("Creating session...")
+                                    .padding()
+                                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+                                    .shadow(radius: 4)
+                                Spacer()
+                            }
+                            Spacer()
+                        }
+                        .background(Color.black.opacity(0.1))
+                    }
+                }
+            )
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {

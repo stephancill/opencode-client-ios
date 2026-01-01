@@ -66,6 +66,11 @@ struct ChatView: View {
                             MessageRow(message: message)
                                 .id(message.id)
                         }
+                        
+                        if isLoading {
+                            MessageSkeletonView(isUser: false)
+                                .id("skeleton")
+                        }
 
                         Color.clear
                             .frame(height: 1)
@@ -76,6 +81,11 @@ struct ChatView: View {
                 .scrollDismissesKeyboard(.interactively)
                 .onChange(of: messageManager.messages.count) { _, _ in
                     if autoScrollEnabled {
+                        scrollToBottom(proxy: proxy)
+                    }
+                }
+                .onChange(of: isLoading) { _, newValue in
+                    if newValue && autoScrollEnabled {
                         scrollToBottom(proxy: proxy)
                     }
                 }
