@@ -7,13 +7,12 @@ class SessionManager: ObservableObject {
 
     @Published var sessions: [Session] = []
     @Published var currentSession: Session?
-    @Published var currentDirectory: String = "/home/opencode/control"
 
     private init() {}
 
     func loadSessions() async {
         do {
-            sessions = try await OpenCodeAPIClient.shared.listSessions(directory: currentDirectory)
+            sessions = try await OpenCodeAPIClient.shared.listSessions()
         } catch {
             print("Failed to load sessions: \(error)")
         }
@@ -21,7 +20,7 @@ class SessionManager: ObservableObject {
 
     func createSession(title: String? = nil) async {
         do {
-            let newSession = try await OpenCodeAPIClient.shared.createSession(title: title, directory: currentDirectory)
+            let newSession = try await OpenCodeAPIClient.shared.createSession(title: title)
             sessions.append(newSession)
             currentSession = newSession
         } catch {
@@ -31,7 +30,7 @@ class SessionManager: ObservableObject {
 
     func deleteSession(_ session: Session) async {
         do {
-            try await OpenCodeAPIClient.shared.deleteSession(id: session.id, directory: currentDirectory)
+            try await OpenCodeAPIClient.shared.deleteSession(id: session.id)
             sessions.removeAll { $0.id == session.id }
             if currentSession?.id == session.id {
                 currentSession = nil

@@ -124,7 +124,7 @@ struct ChatView: View {
             await permissionManager.fetchPermissions()
             
             // Start event listener to catch streaming updates for existing sessions
-            messageManager.startEventListener(sessionID: session.id, directory: session.directory)
+            messageManager.startEventListener(sessionID: session.id)
         }
         .onDisappear {
             // Stop event listener when leaving the session
@@ -190,8 +190,7 @@ struct ChatView: View {
 
             let stream = messageManager.sendMessageWithStream(
                 sessionID: session.id,
-                prompt: messageText,
-                directory: session.directory
+                prompt: messageText
             )
 
             for await _ in stream {

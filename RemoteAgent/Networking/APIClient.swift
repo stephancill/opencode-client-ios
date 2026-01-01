@@ -66,10 +66,9 @@ class OpenCodeAPIClient {
     func performRequest<T: Decodable>(
         endpoint: String,
         method: HTTPMethod = .get,
-        body: Encodable? = nil,
-        directory: String? = nil
+        body: Encodable? = nil
     ) async throws -> T {
-        var request = try buildRequest(endpoint: endpoint, method: method, body: body, directory: directory)
+        var request = try buildRequest(endpoint: endpoint, method: method, body: body)
         let (data, response) = try await session.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -94,10 +93,9 @@ class OpenCodeAPIClient {
     func performRequestWithoutResponse(
         endpoint: String,
         method: HTTPMethod = .post,
-        body: Encodable? = nil,
-        directory: String? = nil
+        body: Encodable? = nil
     ) async throws {
-        let request = try buildRequest(endpoint: endpoint, method: method, body: body, directory: directory)
+        let request = try buildRequest(endpoint: endpoint, method: method, body: body)
         let (_, response) = try await session.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -112,16 +110,11 @@ class OpenCodeAPIClient {
     private func buildRequest(
         endpoint: String,
         method: HTTPMethod,
-        body: Encodable?,
-        directory: String?
+        body: Encodable?
     ) throws -> URLRequest {
         let url = baseURL.appendingPathComponent(endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = method.rawValue
-
-        if let directory = directory {
-            request.setValue(directory, forHTTPHeaderField: "x-opencode-directory")
-        }
 
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")

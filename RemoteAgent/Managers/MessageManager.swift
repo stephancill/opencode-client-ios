@@ -54,7 +54,7 @@ class MessageManager: ObservableObject {
     
     /// Sends a message and streams incremental updates via SSE
     /// Uses prompt_async + event stream for real-time token streaming
-    func sendMessageWithStream(sessionID: String, prompt: String, directory: String? = nil) -> AsyncStream<Void> {
+    func sendMessageWithStream(sessionID: String, prompt: String) -> AsyncStream<Void> {
         return AsyncStream { continuation in
             Task { @MainActor in
                 isLoading = true
@@ -69,7 +69,7 @@ class MessageManager: ObservableObject {
                 
                 do {
                     // Start SSE listener first
-                    let eventStream = eventClient.eventStream(directory: directory)
+                    let eventStream = eventClient.eventStream()
                     
                     // Send the prompt async (fire and forget)
                     print("MessageManager: Sending prompt_async")
@@ -252,7 +252,7 @@ class MessageManager: ObservableObject {
         }
     }
 
-    func startEventListener(sessionID: String, directory: String?) {
+    func startEventListener(sessionID: String) {
         // Only start if not already listening to this session
         if eventListenerTask != nil {
             print("MessageManager: Event listener already running, stopping first")
@@ -262,7 +262,7 @@ class MessageManager: ObservableObject {
         eventListenerTask = Task { @MainActor in
             print("MessageManager: Starting event listener for session \(sessionID)")
 
-            let eventStream = eventClient.eventStream(directory: directory)
+            let eventStream = eventClient.eventStream()
 
             do {
                 for try await event in eventStream {

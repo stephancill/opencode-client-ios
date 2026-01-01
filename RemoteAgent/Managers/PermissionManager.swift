@@ -46,8 +46,7 @@ class PermissionManager: ObservableObject {
     func respondToPermission(
         sessionID: String,
         permissionID: String,
-        response: PermissionResponse,
-        directory: String? = nil
+        response: PermissionResponse
     ) async -> Bool {
         print("PermissionManager: Responding to permission \(permissionID) with \(response.rawValue)")
         do {
@@ -55,8 +54,7 @@ class PermissionManager: ObservableObject {
             try await client.respondToPermission(
                 sessionID: sessionID,
                 permissionID: permissionID,
-                response: response,
-                directory: directory
+                response: response
             )
             
             print("PermissionManager: Response sent successfully")
@@ -75,7 +73,7 @@ class PermissionManager: ObservableObject {
             // Initial fetch to get any existing permissions
             await fetchPermissions()
             
-            let eventStream = eventClient.eventStream(directory: nil)
+            let eventStream = eventClient.eventStream()
             
             do {
                 for try await event in eventStream {

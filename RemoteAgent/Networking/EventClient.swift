@@ -26,7 +26,7 @@ class EventClient {
         self.session = URLSession(configuration: config)
     }
 
-    func eventStream(directory: String?) -> AsyncThrowingStream<ServerEvent, Error> {
+    func eventStream() -> AsyncThrowingStream<ServerEvent, Error> {
         return AsyncThrowingStream { continuation in
             currentTask = Task {
                 var urlString = baseURL.absoluteString
@@ -34,12 +34,7 @@ class EventClient {
                     urlString.removeLast()
                 }
 
-                if let directory = directory {
-                    let encoded = directory.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? directory
-                    urlString += "/event?directory=\(encoded)"
-                } else {
-                    urlString += "/event"
-                }
+                urlString += "/event"
 
                 if let url = URL(string: urlString) {
                     var request = URLRequest(url: url)

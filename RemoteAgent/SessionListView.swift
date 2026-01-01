@@ -86,15 +86,9 @@ struct SessionRow: View {
             Text(session.title)
                 .font(.headline)
 
-            HStack(spacing: 8) {
-                Text(formatDate(session.time.updated))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Text(session.directory)
-                    .font(.caption)
-                    .foregroundStyle(.blue)
-            }
+            Text(formatDate(session.time.updated))
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .padding(.vertical, 8)
     }
