@@ -491,3 +491,4 @@ Note: Server sends raw JSON, not in standard SSE `data:` format
 - improve handling of existing sessions with many messages
 - @ mentions for projects and files
 - show code edits
+- remove directory control from the client side
