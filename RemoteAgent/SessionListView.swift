@@ -3,6 +3,7 @@ import SwiftUI
 struct SessionsView: View {
     @StateObject private var sessionManager = SessionManager.shared
     @State private var isLoading = false
+    @State private var isRefreshing = false
     @State private var isCreatingSession = false
     @State private var navigationPath = NavigationPath()
 
@@ -26,6 +27,16 @@ struct SessionsView: View {
                     ForEach(sessionManager.sessions) { session in
                         NavigationLink(value: session) {
                             SessionRow(session: session)
+                                .overlay(
+                                    // Show subtle loading indicator during refresh
+                                    Group {
+                                        if isRefreshing {
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                                                .opacity(0.5)
+                                        }
+                                    }
+                                )
                         }
                     }
                 }
@@ -41,7 +52,24 @@ struct SessionsView: View {
                 await loadSessionsAsync()
             }
             .overlay(
-                Group {
+                VStack {
+                    if isRefreshing && !sessionManager.sessions.isEmpty {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("Refreshing...")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 4)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+                        .padding(.horizontal)
+                        .padding(.vertical, 4)
+                    }
+                    
                     if isCreatingSession {
                         VStack {
                             Spacer()
@@ -58,6 +86,7 @@ struct SessionsView: View {
                         .background(Color.black.opacity(0.1))
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             )
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -89,10 +118,16 @@ struct SessionsView: View {
     }
 
     private func loadSessions() {
-        isLoading = true
+        if sessionManager.sessions.isEmpty {
+            isLoading = true
+        } else {
+            isRefreshing = true
+        }
+        
         Task {
             await loadSessionsAsync()
             isLoading = false
+            isRefreshing = false
         }
     }
 

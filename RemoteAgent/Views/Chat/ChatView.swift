@@ -10,6 +10,8 @@ struct ChatView: View {
     @FocusState private var isInputFocused: Bool
     @State private var sendTask: Task<Void, Never>?
     @State private var permissionError: String?
+    @State private var isLoadingMessages = false
+    @State private var isRefreshingMessages = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -53,23 +55,40 @@ struct ChatView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 12) {
-                        if messageManager.messages.isEmpty && !isLoading {
+                        if isLoadingMessages {
+                            // Show multiple skeletons while loading initial messages
+                            ForEach(0..<3, id: \.self) { index in
+                                MessageSkeletonView(isUser: index % 2 == 0)
+                                    .id("skeleton-\(index)")
+                            }
+                        } else if messageManager.messages.isEmpty && !isLoading {
                             ContentUnavailableView {
                                 Label("No messages yet", systemImage: "bubble.left.and.bubble.right")
                                     Text("Start a conversation")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                             }
-                        }
-
-                        ForEach(messageManager.messages, id: \.id) { message in
-                            MessageRow(message: message)
-                                .id(message.id)
-                        }
-                        
-                        if isLoading {
-                            MessageSkeletonView(isUser: false)
-                                .id("skeleton")
+                        } else {
+                            // Show existing messages (possibly stale) while refreshing
+                            ForEach(messageManager.messages, id: \.id) { message in
+                                MessageRow(message: message)
+                                    .id(message.id)
+                                    .overlay(
+                                        // Show subtle loading indicator on stale messages during refresh
+                                        Group {
+                                            if isRefreshingMessages {
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                                                    .opacity(0.5)
+                                            }
+                                        }
+                                    )
+                            }
+                            
+                            if isLoading {
+                                MessageSkeletonView(isUser: false)
+                                    .id("skeleton")
+                            }
                         }
 
                         Color.clear
@@ -97,6 +116,23 @@ struct ChatView: View {
                 .onAppear {
                     scrollToBottom(proxy: proxy, animated: false)
                 }
+            }
+
+            if isRefreshingMessages && !messageManager.messages.isEmpty {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Refreshing...")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 4)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+                .padding(.horizontal)
+                .padding(.vertical, 4)
             }
 
             Divider()
@@ -150,11 +186,20 @@ struct ChatView: View {
     }
 
     private func loadMessages() async {
+        if messageManager.messages.isEmpty {
+            isLoadingMessages = true
+        } else {
+            isRefreshingMessages = true
+        }
+        
         do {
             try await messageManager.fetchMessages(sessionID: session.id)
         } catch {
             print("Error loading messages: \(error)")
         }
+        
+        isLoadingMessages = false
+        isRefreshingMessages = false
     }
 
     private func cancelRequest() {
