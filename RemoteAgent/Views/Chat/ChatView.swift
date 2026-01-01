@@ -23,8 +23,7 @@ struct ChatView: View {
                             let _ = await permissionManager.respondToPermission(
                                 sessionID: session.id,
                                 permissionID: pendingPermission.id,
-                                response: .reject,
-                                directory: session.directory
+                                response: .reject
                             )
                         }
                     },
@@ -34,8 +33,7 @@ struct ChatView: View {
                             let _ = await permissionManager.respondToPermission(
                                 sessionID: session.id,
                                 permissionID: pendingPermission.id,
-                                response: .once,
-                                directory: session.directory
+                                response: .once
                             )
                         }
                     },
@@ -45,8 +43,7 @@ struct ChatView: View {
                             let _ = await permissionManager.respondToPermission(
                                 sessionID: session.id,
                                 permissionID: pendingPermission.id,
-                                response: .always,
-                                directory: session.directory
+                                response: .always
                             )
                         }
                     }
@@ -157,8 +154,7 @@ struct ChatView: View {
         Task {
             do {
                 try await OpenCodeAPIClient.shared.abortSession(
-                    sessionID: session.id,
-                    directory: session.directory
+                    sessionID: session.id
                 )
             } catch {
                 print("Error aborting session: \(error)")
