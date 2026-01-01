@@ -8,11 +8,6 @@ struct ContentView: View {
                     Label("Sessions", systemImage: "tray")
                 }
 
-            Text("Projects View")
-                .tabItem {
-                    Label("Projects", systemImage: "folder")
-                }
-
             NavigationView {
                 SettingsView()
             }
