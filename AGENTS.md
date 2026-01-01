@@ -150,6 +150,12 @@ TabView:
 - Token/cost display per session
 - Error banner with retry
 
+### 6.4 Push Notifications ✅
+- Local notifications support (no backend required)
+- Remote notifications with APNs device tokens
+- Device token displayed in Settings for backend integration
+- Environment variable integration for OpenCode server
+
 ## File Structure
 ```
 RemoteAgent/
@@ -164,10 +170,11 @@ RemoteAgent/
 │  ├─ APIClient.swift (Includes OpenCodeError enum)
 │  ├─ SSEClient.swift
 │  └─ APIEndpoints.swift
- ├─ Managers/ ✅
- │  ├─ SessionManager.swift
- │  ├─ MessageManager.swift
- │  └─ PermissionManager.swift
+├─ Managers/ ✅
+  │  ├─ SessionManager.swift
+  │  ├─ MessageManager.swift
+  │  ├─ PermissionManager.swift
+  │  └─ NotificationManager.swift
  ├─ Views/ ✅
  │  ├─ Chat/
  │  │  └─ ChatView.swift
@@ -178,8 +185,9 @@ RemoteAgent/
  │  ├─ ContentView.swift (TabView navigation)
  │  ├─ SettingsView.swift
  │  └─ SessionListView.swift
-└─ RemoteAgentApp.swift
-```
+ ├─ RemoteAgentApp.swift ✅
+ └─ AppDelegate.swift ✅
+ ```
 
 ## Key Technical Decisions
 
@@ -219,6 +227,26 @@ RemoteAgent/
 - NavigationView wrapper provides toolbar support for each tab
 - iOS 18 deployment target
 
+### Notification System
+- Local notifications for immediate alerts (test notifications work without backend)
+- Remote notifications via Apple Push Notification Service (APNs)
+- Device token generation and storage in UserDefaults
+- Permission handling with iOS Settings integration
+- Environment variable support for backend token consumption
+
+**Notification Components:**
+- `NotificationManager.swift`: Singleton managing notifications, permissions, device token
+- `AppDelegate.swift`: Handles UIApplication delegate callbacks for APNs registration
+- `SettingsView.swift`: UI for enabling/disabling notifications, viewing device token, testing
+
+**Entitlements:**
+- `aps-environment: development` in RemoteAgent.entitlements
+- `UIBackgroundModes: remote-notification` in Info.plist
+
+**Data Storage:**
+- `notificationsEnabled`: Bool in UserDefaults (toggle state)
+- `deviceToken`: String in UserDefaults (64-character APNs token)
+
 ## Build Commands
 
 **Current Build Status**: ✅ Building successfully for iOS Simulator (no errors or warnings)
@@ -253,8 +281,8 @@ xcodebuild ... | xcpretty
 ### ✅ Completed
 - [x] Models: OpenCodeError, Session, Message, MessagePart, Permission, Event
 - [x] Networking: APIClient (HTTP client), SSEClient (event streaming), APIEndpoints extension
-- [x] Managers: SessionManager (session lifecycle), MessageManager (message fetching), PermissionManager (polling)
-- [x] Views: SessionListView (with create/delete), ChatView (message display + permissions), SettingsView (VPS URL)
+- [x] Managers: SessionManager (session lifecycle), MessageManager (message fetching), PermissionManager (polling), NotificationManager (push notifications)
+- [x] Views: SessionListView (with create/delete), ChatView (message display + permissions), SettingsView (VPS URL, notifications)
 - [x] Navigation: TabView with NavigationView for proper toolbar support
 - [x] Message Models: Fixed decoding to handle actual API response (info/parts structure)
 - [x] MessagePart: Added proper decoding for all part types (text, tool, file, reasoning, steps)
@@ -274,6 +302,7 @@ xcodebuild ... | xcpretty
 - [x] Permission Response: Deny/Allow Once/Always Allow buttons with API integration
 - [x] Permission Icons: Color-coded icons by permission type (file, command, network, external_directory)
 - [x] Cancel Request: Red X button appears when loading, calls `/session/:id/abort` endpoint
+- [x] Notification System: Added local notifications and APNs device token support with Settings UI
 
 ### ⚠️ Known Issues
 - **Print console logging needs cleanup** - Debug print statements throughout codebase
@@ -315,7 +344,8 @@ RemoteAgent/
  ├─ Managers/
  │  ├─ SessionManager.swift ✅
  │  ├─ MessageManager.swift ✅ (Added sendMessageWithStream for streaming, proper message handling)
- │  └─ PermissionManager.swift ✅ (Polling permissions every 5 seconds, responding to permissions)
+ │  ├─ PermissionManager.swift ✅ (Polling permissions every 5 seconds, responding to permissions)
+ │  └─ NotificationManager.swift ✅ (Managing notifications, permissions, device token generation)
  ├─ Views/
  │  ├─ Chat/
  │  │  └─ ChatView.swift ✅ (Streaming, cancel, permission alerts, auto-scroll)
@@ -324,9 +354,10 @@ RemoteAgent/
  │  ├─ Sessions/ (empty)
  │  ├─ Shared/ (empty)
  │  ├─ ContentView.swift ✅ (TabView navigation)
- │  └─ SettingsView.swift ✅
-├─ SessionListView.swift ✅
-└─ RemoteAgentApp.swift ✅
+ │  └─ SettingsView.swift ✅ (VPS URL, notifications with device token display and test button)
+ ├─ SessionListView.swift ✅
+ ├─ RemoteAgentApp.swift ✅
+ └─ AppDelegate.swift ✅ (UIApplicationDelegate for APNs registration and notification handling)
 ```
 
 ### 🎯 Next Steps for Developer
@@ -366,23 +397,37 @@ RemoteAgent/
        - Note: Currently permission alerts appear directly in ChatView for active session
 
 ### ✅ Recently Completed
+- **Notification System**: Added complete notification support for iOS app
+    - NotificationManager singleton for managing permissions and device tokens
+    - AppDelegate for handling UIApplication delegate callbacks
+    - Local notifications (test notifications work without backend)
+    - Remote notifications with APNs device token generation
+    - Settings UI with toggle, device token display, and copy functionality
+    - "Send Test Notification" button for testing
+    - Permission status display with "Open Settings" link when denied
+    - `aps-environment: development` entitlement in RemoteAgent.entitlements
+    - `UIBackgroundModes: remote-notification` in Info.plist
+    - Comprehensive backend integration documentation in AGENTS.md
+    - Device token stored in UserDefaults for persistence
+    - Ready for OpenCode server integration with environment variable `OPENCODE_DEVICE_TOKEN`
+
 - **Cancel Request Functionality**: Added ability to cancel in-progress message requests
-   - Red X icon (`xmark.circle.fill`) appears when loading
-   - Button action toggles between send and cancel
-   - Calls `/session/:id/abort` endpoint to stop session
-   - Task cancellation with Swift `Task.cancel()`
-   - Proper loading state management
+    - Red X icon (`xmark.circle.fill`) appears when loading
+    - Button action toggles between send and cancel
+    - Calls `/session/:id/abort` endpoint to stop session
+    - Task cancellation with Swift `Task.cancel()`
+    - Proper loading state management
 
 - **Permission Alerts in ChatView**: Added permission alert UI directly in chat interface
-   - PermissionManager polls `/permission` endpoint every 5 seconds
-   - Pending permissions filtered by current session ID
-   - Alert card shows at top of chat when permission is pending
-   - Displays permission title, type, and metadata (file paths, commands, etc.)
-   - Three action buttons: Deny, Allow Once, Always Allow
-   - Color-coded icons by permission type (file, command, network, external_directory, etc.)
-   - Uses `.regularMaterial` background for glassmorphism effect
-   - Shadows and rounded corners for modern iOS design
-   - API response calls use correct session directory parameter
+    - PermissionManager polls `/permission` endpoint every 5 seconds
+    - Pending permissions filtered by current session ID
+    - Alert card shows at top of chat when permission is pending
+    - Displays permission title, type, and metadata (file paths, commands, etc.)
+    - Three action buttons: Deny, Allow Once, Always Allow
+    - Color-coded icons by permission type (file, command, network, external_directory, etc.)
+    - Uses `.regularMaterial` background for glassmorphism effect
+    - Shadows and rounded corners for modern iOS design
+    - API response calls use correct session directory parameter
        - Add workspace selection toggle (Project vs Control mode)
        - Implement add/edit/delete project functionality
 
@@ -402,6 +447,8 @@ RemoteAgent/
 - PermissionManager polls `/permission` endpoint every 5 seconds using Timer
 - PermissionManager updates `@Published` properties from background thread (causes warning but non-blocking)
 - Markdown Support: Added MarkdownView component using native iOS Text(LocalizedStringKey) for rendering markdown content in text messages and generic parts
+- Notification Support: NotificationManager singleton with automatic permission handling, APNs registration, and local notification sending
+- Device Token: 64-character hex string stored in UserDefaults, displayed in Settings, ready for backend integration
 - APIClient base URL stored in UserDefaults: "baseURL" key
 - Default VPS URL: "https://vps.ts.net"
 - API response structure: Messages have `info` object and `parts` array
@@ -480,6 +527,315 @@ Note: Server sends raw JSON, not in standard SSE `data:` format
 5. `abortSession()` API call sends `POST /session/:id/abort`
 6. Loading state set to false, send button returns
 7. UI returns to normal state
+
+---
+
+## 🔔 Push Notifications Backend Integration
+
+### Overview
+The iOS client is now configured to receive push notifications via Apple's APNs (Apple Push Notification Service). Device tokens are automatically generated when notifications are enabled and can be used by the OpenCode server to send remote notifications.
+
+### Step 1: Get the Device Token
+
+**From the iOS App:**
+1. Open the RemoteAgent app on your device
+2. Navigate to **Settings** tab
+3. Toggle **Enable Notifications** ON
+4. Grant permission when iOS prompts
+5. Wait for the device token to appear (may take a few seconds)
+6. Tap **Copy Token** to copy the 64-character hex string
+
+**Example Device Token:**
+```
+a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456
+```
+
+### Step 2: Configure Environment Variables on VPS
+
+You need to set both the device token and the APNs p8 key as environment variables.
+
+**Option A: User-Specific Variables (Recommended)**
+Set the environment variables in your user's shell configuration:
+```bash
+# Add to ~/.bashrc, ~/.zshrc, or ~/.profile
+export OPENCODE_DEVICE_TOKEN="a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
+export OPENCODE_APNS_KEY="-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgYourAPNsPrivateKeyContent
+HereInBase64FormatThatYouDownloadedFromAppleDeveloperPortalHere...
+-----END PRIVATE KEY-----"
+export OPENCODE_TEAM_ID="YOUR_TEAM_ID"
+export OPENCODE_KEY_ID="YOUR_KEY_ID"
+```
+
+**Option B: System-Wide Variables**
+Set the environment variables in systemd service file:
+```ini
+# /etc/systemd/system/opencode.service
+[Service]
+Environment="OPENCODE_DEVICE_TOKEN=a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
+Environment="OPENCODE_APNS_KEY=-----BEGIN PRIVATE KEY-----\nMIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgYourAPNsPrivateKeyContentHere...\n-----END PRIVATE KEY-----"
+Environment="OPENCODE_TEAM_ID=YOUR_TEAM_ID"
+Environment="OPENCODE_KEY_ID=YOUR_KEY_ID"
+```
+
+**Option C: Docker Environment Variables**
+```bash
+docker run \
+  -e OPENCODE_DEVICE_TOKEN="a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456" \
+  -e OPENCODE_APNS_KEY="-----BEGIN PRIVATE KEY-----\nMIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgYourAPNsPrivateKeyContentHere...\n-----END PRIVATE KEY-----" \
+  -e OPENCODE_TEAM_ID="YOUR_TEAM_ID" \
+  -e OPENCODE_KEY_ID="YOUR_KEY_ID" \
+  opencode
+```
+
+**Note:** The APNs p8 key should be copied exactly as downloaded from Apple Developer Portal, including the `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----` headers/footers.
+
+### Step 3: Backend Implementation for APNs
+
+The OpenCode server needs to be configured to send push notifications using Apple's APNs HTTP/2 API.
+
+#### Prerequisites:
+1. **Apple Developer Account** - Required for production APNs
+2. **APNs Key (.p8)** - Download from Apple Developer Portal
+3. **Team ID, Key ID, Bundle ID** - From Apple Developer account
+
+#### Example Python Implementation (using `apns2` library):
+
+```python
+import os
+from apns2.client import APNsClient
+from apns2.payload import Payload, PayloadAlert
+
+# Configuration from environment variables
+DEVICE_TOKEN = os.getenv('OPENCODE_DEVICE_TOKEN')
+APNS_KEY = os.getenv('OPENCODE_APNS_KEY')
+TEAM_ID = os.getenv('OPENCODE_TEAM_ID')
+KEY_ID = os.getenv('OPENCODE_KEY_ID')
+BUNDLE_ID = "co.za.stephancill.opencode"
+
+def send_notification(title, body, data=None):
+    """
+    Send a push notification to the iOS device
+    """
+    try:
+        client = APNsClient(APNS_KEY, use_sandbox=True, use_alternate_port=False)
+
+        # Create payload
+        payload = Payload(
+            alert=PayloadAlert(
+                title=title,
+                body=body
+            ),
+            sound="default",
+            badge=None,  # No badge numbers as per requirements
+            custom=data or {}
+        )
+
+        # Send notification
+        client.send_notification(
+            token_hex=DEVICE_TOKEN,
+            notification=payload,
+            topic=BUNDLE_ID,
+            priority=10  # 10 = immediate, 5 = throttled
+        )
+
+        print(f"Notification sent successfully: {title}")
+        return True
+
+    except Exception as e:
+        print(f"Failed to send notification: {e}")
+        return False
+
+# Example usage
+send_notification(
+    title="OpenCode",
+    body="Task completed successfully",
+    data={
+        "sessionId": "session_123",
+        "type": "task_completed"
+    }
+)
+```
+
+#### Example Node.js Implementation:
+
+```javascript
+const apn = require('apn');
+
+// Configuration from environment variables
+const DEVICE_TOKEN = process.env.OPENCODE_DEVICE_TOKEN;
+const TEAM_ID = process.env.OPENCODE_TEAM_ID;
+const KEY_ID = process.env.OPENCODE_KEY_ID;
+const BUNDLE_ID = 'co.za.stephancill.opencode';
+const APNS_KEY = process.env.OPENCODE_APNS_KEY;
+
+const apnProvider = new apn.Provider({
+  token: {
+    key: APNS_KEY,
+    keyId: KEY_ID,
+    teamId: TEAM_ID,
+  },
+  production: false, // Set to true for production
+});
+
+function sendNotification(title, body, data = {}) {
+  const notification = new apn.Notification();
+
+  notification.alert = {
+    title: title,
+    body: body
+  };
+  notification.sound = 'default';
+  notification.topic = BUNDLE_ID;
+  notification.payload = data;
+
+  apnProvider.send(notification, DEVICE_TOKEN)
+    .then((result) => {
+      if (result.failed.length > 0) {
+        console.error('Failed to send notification:', result.failed);
+      } else {
+        console.log('Notification sent successfully:', title);
+      }
+    })
+    .catch((error) => {
+      console.error('Notification error:', error);
+    });
+}
+
+// Example usage
+sendNotification('OpenCode', 'Task completed successfully', {
+  sessionId: 'session_123',
+  type: 'task_completed'
+});
+```
+
+### Step 4: Integration with OpenCode Agent
+
+The OpenCode agent should be able to read the environment variables and send notifications for relevant events:
+
+#### Example Events to Notify:
+
+1. **Task Completion**: When a long-running task completes
+2. **Error Alert**: When an error occurs during execution
+3. **Permission Request**: When user action is required (optional, already handled in app)
+4. **Message Update**: When a new message arrives in an active session
+
+#### Example Integration:
+
+```python
+import os
+from apns2.client import APNsClient
+from apns2.payload import Payload, PayloadAlert
+
+class OpenCodeAgent:
+    def __init__(self):
+        self.device_token = os.getenv('OPENCODE_DEVICE_TOKEN')
+        self.apns_key = os.getenv('OPENCODE_APNS_KEY')
+        self.team_id = os.getenv('OPENCODE_TEAM_ID')
+        self.key_id = os.getenv('OPENCODE_KEY_ID')
+
+        if self.device_token and self.apns_key:
+            self.init_notifications()
+
+    def init_notifications(self):
+        """Initialize APNs client"""
+        self.apns_client = APNsClient(
+            self.apns_key,
+            use_sandbox=True,
+            use_alternate_port=False
+        )
+
+    def notify_task_complete(self, session_id, message):
+        """Send notification when task completes"""
+        if self.device_token and self.apns_key:
+            payload = Payload(
+                alert=PayloadAlert(
+                    title="Task Complete",
+                    body=message
+                ),
+                sound="default",
+                badge=None,
+                custom={"sessionId": session_id, "type": "task_completed"}
+            )
+
+            try:
+                self.apns_client.send_notification(
+                    token_hex=self.device_token,
+                    notification=payload,
+                    topic="co.za.stephancill.opencode",
+                    priority=10
+                )
+            except Exception as e:
+                print(f"Failed to send notification: {e}")
+
+    def notify_error(self, session_id, error):
+        """Send notification when error occurs"""
+        if self.device_token and self.apns_key:
+            payload = Payload(
+                alert=PayloadAlert(
+                    title="Error",
+                    body=f"Error in session: {error}"
+                ),
+                sound="default",
+                badge=None,
+                custom={"sessionId": session_id, "type": "error"}
+            )
+
+            try:
+                self.apns_client.send_notification(
+                    token_hex=self.device_token,
+                    notification=payload,
+                    topic="co.za.stephancill.opencode",
+                    priority=10
+                )
+            except Exception as e:
+                print(f"Failed to send notification: {e}")
+```
+
+### Step 5: Testing Notifications
+
+**Local Testing (Sandbox):**
+- Use `use_sandbox=True` in Python or `production: false` in Node.js
+- Test with your development APNs key (.p8)
+- Device tokens from development builds work with sandbox
+
+**Production Testing:**
+- Use `use_sandbox=False` in Python or `production: true` in Node.js
+- Requires production APNs certificate/key
+- Device tokens from App Store/TestFlight builds work with production
+
+### Step 6: Troubleshooting
+
+**Common Issues:**
+
+1. **Invalid Device Token**
+   - Token format: 64-character hex string
+   - Check that you copied the full token from the iOS app
+   - Regenerate token by toggling notifications off/on
+
+2. **APNs Authentication Failed**
+    - Verify your `OPENCODE_APNS_KEY` environment variable is set correctly
+    - Check that the key includes the full `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----` headers/footers
+    - Check that Team ID and Key ID match your Apple Developer account
+    - Ensure Bundle ID matches your Xcode project: `co.za.stephancill.opencode`
+
+3. **Sandbox vs Production**
+   - Development builds use sandbox APNs server
+   - App Store/TestFlight builds use production APNs server
+   - Device tokens differ between sandbox and production
+
+4. **No Notification Received**
+   - Check iOS Settings → Notifications → RemoteAgent
+   - Ensure notifications are allowed for the app
+   - Verify internet connection on the device
+   - Check server logs for APNs errors
+
+### Additional Resources:
+
+- [Apple Push Notification Service Documentation](https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server)
+- [APNs Python Library (apns2)](https://github.com/Skyscanner/apns2)
+- [APNs Node.js Library (node-apn)](https://github.com/parse-community/node-apn)
+- [Generating APNs Key (.p8)](https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/sending_notification_requests_to_apns)
 
 ## User Added Todos
 
