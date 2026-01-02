@@ -13,6 +13,7 @@ class SessionManager: ObservableObject {
     func loadSessions() async {
         do {
             sessions = try await OpenCodeAPIClient.shared.listSessions()
+            sortSessionsByLastMessage()
         } catch {
             print("Failed to load sessions: \(error)")
         }
@@ -22,6 +23,7 @@ class SessionManager: ObservableObject {
         do {
             let newSession = try await OpenCodeAPIClient.shared.createSession(title: title)
             sessions.append(newSession)
+            sortSessionsByLastMessage()
             currentSession = newSession
         } catch {
             print("Failed to create session: \(error)")
@@ -42,5 +44,9 @@ class SessionManager: ObservableObject {
 
     func selectSession(_ session: Session) {
         currentSession = session
+    }
+    
+    private func sortSessionsByLastMessage() {
+        sessions.sort { $0.time.updated > $1.time.updated }
     }
 }
