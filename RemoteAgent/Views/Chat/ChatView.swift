@@ -59,12 +59,16 @@ struct ChatView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 12) {
-                        if messageManager.messages.isEmpty && !isLoading {
-                            ContentUnavailableView {
-                                Label("No messages yet", systemImage: "bubble.left.and.bubble.right")
-                                    Text("Start a conversation")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                        if messageManager.messages.isEmpty {
+                            if messageManager.isLoading {
+                                ProgressView("Loading messages...")
+                            } else {
+                                ContentUnavailableView {
+                                    Label("No messages yet", systemImage: "bubble.left.and.bubble.right")
+                                        Text("Start a conversation")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                }
                             }
                         }
 
