@@ -189,19 +189,20 @@ struct ChatView: View {
     }
 
     private func handleScrollOffset(_ offset: CGFloat) {
-        let isAtBottom = abs(offset - scrollOffset) < 10
+        let previousOffset = scrollOffset
         scrollOffset = offset
-
-        if !isAtBottom && autoScrollEnabled {
+        
+        let scrollDirection = offset - previousOffset
+        let isScrollingUp = scrollDirection < -50
+        
+        if messageManager.isLoading && isScrollingUp && autoScrollEnabled {
             autoScrollEnabled = false
             withAnimation {
                 showJumpToBottom = true
             }
-        } else if isAtBottom && !autoScrollEnabled {
-            autoScrollEnabled = true
-            withAnimation {
-                showJumpToBottom = false
-            }
+            print("User scrolled up, pausing auto-scroll")
+        } else if autoScrollEnabled && !showJumpToBottom {
+            showJumpToBottom = false
         }
     }
 
