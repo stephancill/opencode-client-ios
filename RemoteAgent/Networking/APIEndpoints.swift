@@ -38,9 +38,10 @@ extension OpenCodeAPIClient {
         return try await performRequest(endpoint: endpoint)
     }
 
-    func sendMessage(sessionID: String, prompt: String) async throws -> Bool {
+    func sendMessage(sessionID: String, prompt: String, agent: String? = nil) async throws -> Bool {
         struct SendMessageBody: Encodable {
             let parts: [MessagePartData]
+            let agent: String?
         }
 
         struct MessagePartData: Encodable {
@@ -51,7 +52,8 @@ extension OpenCodeAPIClient {
         let body = SendMessageBody(
             parts: [
                 MessagePartData(type: "text", text: prompt)
-            ]
+            ],
+            agent: agent
         )
         try await performRequestWithoutResponse(endpoint: "/session/\(sessionID)/prompt_async", method: .post, body: body)
         return true

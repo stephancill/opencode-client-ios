@@ -1,5 +1,10 @@
 import SwiftUI
 
+enum AgentMode: String, CaseIterable {
+    case build = "build"
+    case plan = "plan"
+}
+
 struct ChatView: View {
     let session: Session
     @StateObject private var messageManager = MessageManager()
@@ -10,6 +15,7 @@ struct ChatView: View {
     @FocusState private var isInputFocused: Bool
     @State private var sendTask: Task<Void, Never>?
     @State private var permissionError: String?
+    @State private var agentMode: AgentMode = .build
 
     var body: some View {
         VStack(spacing: 0) {
@@ -92,6 +98,13 @@ struct ChatView: View {
             Divider()
 
             HStack(alignment: .bottom, spacing: 12) {
+                Picker("", selection: $agentMode) {
+                    Text("Build").tag(AgentMode.build)
+                    Text("Plan").tag(AgentMode.plan)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 120)
+
                 TextField("Message", text: $inputText, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(1...6)
@@ -186,7 +199,8 @@ struct ChatView: View {
 
             let stream = messageManager.sendMessageWithStream(
                 sessionID: session.id,
-                prompt: messageText
+                prompt: messageText,
+                agent: agentMode.rawValue
             )
 
             for await _ in stream {

@@ -31,12 +31,12 @@ class MessageManager: ObservableObject {
         }
     }
 
-    func sendMessage(sessionID: String, prompt: String) async throws -> Bool {
+    func sendMessage(sessionID: String, prompt: String, agent: String? = nil) async throws -> Bool {
         isLoading = true
         defer { isLoading = false }
 
         do {
-            return try await apiClient.sendMessage(sessionID: sessionID, prompt: prompt)
+            return try await apiClient.sendMessage(sessionID: sessionID, prompt: prompt, agent: agent)
         } catch {
             if let openCodeError = error as? OpenCodeError {
                 self.error = openCodeError
@@ -54,7 +54,7 @@ class MessageManager: ObservableObject {
     
     /// Sends a message and streams incremental updates via SSE
     /// Uses prompt_async + event stream for real-time token streaming
-    func sendMessageWithStream(sessionID: String, prompt: String) -> AsyncStream<Void> {
+    func sendMessageWithStream(sessionID: String, prompt: String, agent: String? = nil) -> AsyncStream<Void> {
         return AsyncStream { continuation in
             Task { @MainActor in
                 isLoading = true
@@ -65,6 +65,7 @@ class MessageManager: ObservableObject {
                 userMessageIds = Set(messages.filter { $0.role == .user }.map { $0.id })
                 
                 print("MessageManager: Starting incremental stream for session \(sessionID)")
+                print("MessageManager: Agent: \(agent ?? "default")")
                 print("MessageManager: Tracking \(userMessageIds.count) existing user messages")
                 
                 do {
@@ -73,7 +74,7 @@ class MessageManager: ObservableObject {
                     
                     // Send the prompt async (fire and forget)
                     print("MessageManager: Sending prompt_async")
-                    _ = try await apiClient.sendMessage(sessionID: sessionID, prompt: prompt)
+                    _ = try await apiClient.sendMessage(sessionID: sessionID, prompt: prompt, agent: agent)
                     print("MessageManager: prompt_async sent, listening for events...")
                     
                     // Listen for events
