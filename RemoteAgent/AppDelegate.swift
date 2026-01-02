@@ -27,15 +27,17 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     }
     
     @objc private func registerForRemoteNotifications() {
+        print("🔔 Registering for remote notifications...")
         UIApplication.shared.registerForRemoteNotifications()
     }
     
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
+        print("✅ Received device token: \(tokenString)")
         NotificationManager.shared.deviceToken = tokenString
     }
     
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        print("Failed to register for remote notifications: \(error.localizedDescription)")
+        print("❌ Failed to register for remote notifications: \(error.localizedDescription)")
     }
 }

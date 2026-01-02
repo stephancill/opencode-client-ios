@@ -75,11 +75,13 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         isEnabled.toggle()
         
         if isEnabled {
+            print("📱 Enabling notifications and requesting new token...")
             deviceToken = nil
             NotificationCenter.default.post(name: .registerForRemoteNotifications, object: nil)
         }
         
         if !isEnabled {
+            print("📱 Disabling notifications...")
             deviceToken = nil
         }
     }
