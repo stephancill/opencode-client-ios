@@ -98,12 +98,14 @@ struct ChatView: View {
             Divider()
 
             HStack(alignment: .bottom, spacing: 12) {
-                Picker("", selection: $agentMode) {
-                    Text("Build").tag(AgentMode.build)
-                    Text("Plan").tag(AgentMode.plan)
+                if inputText.isEmpty {
+                    Picker("", selection: $agentMode) {
+                        Text("Build").tag(AgentMode.build)
+                        Text("Plan").tag(AgentMode.plan)
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 120)
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 120)
 
                 TextField("Message", text: $inputText, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
