@@ -12,10 +12,13 @@ struct ChatView: View {
     @State private var inputText = ""
     @State private var isLoading = false
     @State private var autoScrollEnabled = true
+    @State private var showJumpToBottom = false
+    @State private var scrollOffset: CGFloat = 0
     @FocusState private var isInputFocused: Bool
     @State private var sendTask: Task<Void, Never>?
     @State private var permissionError: String?
     @State private var agentMode: AgentMode = .build
+    @Namespace private var bottomScrollNamespace
 
     var body: some View {
         VStack(spacing: 0) {
@@ -56,42 +59,73 @@ struct ChatView: View {
                 )
             }
 
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(spacing: 12) {
-                        if messageManager.messages.isEmpty && !isLoading {
-                            ContentUnavailableView {
-                                Label("No messages yet", systemImage: "bubble.left.and.bubble.right")
-                                    Text("Start a conversation")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+            ZStack(alignment: .bottomTrailing) {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(spacing: 12) {
+                            if messageManager.messages.isEmpty && !isLoading {
+                                ContentUnavailableView {
+                                    Label("No messages yet", systemImage: "bubble.left.and.bubble.right")
+                                        Text("Start a conversation")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                }
                             }
-                        }
 
-                        ForEach(messageManager.messages, id: \.id) { message in
-                            MessageRow(message: message)
-                                .id(message.id)
-                        }
+                            ForEach(messageManager.messages, id: \.id) { message in
+                                MessageRow(message: message)
+                                    .id(message.id)
+                            }
 
-                        Color.clear
-                            .frame(height: 1)
-                            .id("bottomAnchor")
+                            Color.clear
+                                .frame(height: 1)
+                                .id("bottomAnchor")
+                        }
+                        .padding()
+                        .background(
+                            GeometryReader { geo in
+                                Color.clear.preference(
+                                    key: ScrollOffsetPreferenceKey.self,
+                                    value: -geo.frame(in: .named("scrollView")).minY
+                                )
+                            }
+                        )
                     }
-                    .padding()
-                }
-                .scrollDismissesKeyboard(.interactively)
-                .onChange(of: messageManager.messages.count) { _, _ in
-                    if autoScrollEnabled {
-                        scrollToBottom(proxy: proxy)
+                    .coordinateSpace(name: "scrollView")
+                    .scrollDismissesKeyboard(.interactively)
+                    .onChange(of: messageManager.messages.count) { _, _ in
+                        if autoScrollEnabled {
+                            scrollToBottom(proxy: proxy)
+                        }
                     }
-                }
-                .onChange(of: messageManager.contentUpdateId) { _, _ in
-                    if autoScrollEnabled {
+                    .onChange(of: messageManager.contentUpdateId) { _, _ in
+                        if autoScrollEnabled {
+                            scrollToBottom(proxy: proxy, animated: false)
+                        }
+                    }
+                    .onAppear {
                         scrollToBottom(proxy: proxy, animated: false)
                     }
+                    .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
+                        handleScrollOffset(offset)
+                    }
                 }
-                .onAppear {
-                    scrollToBottom(proxy: proxy, animated: false)
+
+                if showJumpToBottom {
+                    Button(action: {
+                        withAnimation {
+                            showJumpToBottom = false
+                            autoScrollEnabled = true
+                        }
+                    }) {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .font(.title)
+                            .foregroundStyle(Color.accentColor)
+                            .background(Circle().fill(Color(UIColor.systemBackground)))
+                            .shadow(radius: 4)
+                    }
+                    .padding(20)
+                    .transition(.scale.combined(with: .opacity))
                 }
             }
 
@@ -154,6 +188,23 @@ struct ChatView: View {
         }
     }
 
+    private func handleScrollOffset(_ offset: CGFloat) {
+        let isAtBottom = abs(offset - scrollOffset) < 10
+        scrollOffset = offset
+
+        if !isAtBottom && autoScrollEnabled {
+            autoScrollEnabled = false
+            withAnimation {
+                showJumpToBottom = true
+            }
+        } else if isAtBottom && !autoScrollEnabled {
+            autoScrollEnabled = true
+            withAnimation {
+                showJumpToBottom = false
+            }
+        }
+    }
+
     private func loadMessages() async {
         do {
             try await messageManager.fetchMessages(sessionID: session.id)
@@ -189,6 +240,9 @@ struct ChatView: View {
         isLoading = true
         autoScrollEnabled = true
         isInputFocused = false
+        withAnimation {
+            showJumpToBottom = false
+        }
 
         Task { @MainActor in
             print("ChatView: Starting to send message")
