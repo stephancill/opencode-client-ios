@@ -845,6 +845,7 @@ class OpenCodeAgent:
 - fix streaming for when clicking into existing sessions that are busy
 - skeleton loading states for session list and chat view
 - improve handling of existing sessions with many messages
-- @ mentions for projects and files
-- show code edits
-- remove directory control from the client side
+- @ mentions for projects using the https://opencode-vps.tailfc9bef.ts.net/find/file?directory=%2Fhome%2Fopencode&query=&type=directory&limit=50 endpoint
+ - button in settings to stop all tasks
+ - show code edits
+ - remove directory control from the client side
