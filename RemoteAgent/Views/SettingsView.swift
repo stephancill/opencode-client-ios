@@ -7,6 +7,10 @@ struct SettingsView: View {
     @State private var alertMessage = ""
     @State private var showingTokenCopied = false
     @StateObject private var notificationManager = NotificationManager.shared
+    @State private var showingResetConfirmation = false
+    @State private var showingResetSuccess = false
+    @State private var resetError = ""
+    @State private var isResetting = false
     
     init() {
         _baseURL = State(initialValue: UserDefaults.standard.string(forKey: "baseURL") ?? "http://localhost:3000")
@@ -28,6 +32,11 @@ struct SettingsView: View {
                 Button("Save & Test Connection") {
                     saveAndTest()
                 }
+                
+                Button("Reset Instance") {
+                    showingResetConfirmation = true
+                }
+                .foregroundStyle(.red)
             }
             
             Section {
@@ -94,6 +103,29 @@ struct SettingsView: View {
         } message: {
             Text(alertMessage)
         }
+        .alert("Reset Instance", isPresented: $showingResetConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Reset", role: .destructive) {
+                resetInstance()
+            }
+        } message: {
+            Text("This will reset the current instance and may interrupt active tasks. Are you sure?")
+        }
+        .alert(isPresented: $showingResetSuccess) {
+            if resetError.isEmpty {
+                return Alert(
+                    title: Text("Success"),
+                    message: Text("Instance has been reset successfully."),
+                    dismissButton: .default(Text("OK"))
+                )
+            } else {
+                return Alert(
+                    title: Text("Reset Failed"),
+                    message: Text(resetError),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
+        }
         .overlay {
             if showingTokenCopied {
                 Text("Token copied to clipboard")
@@ -155,6 +187,24 @@ struct SettingsView: View {
         }
         
         return normalized
+    }
+    
+    private func resetInstance() {
+        isResetting = true
+        resetError = ""
+        
+        Task {
+            do {
+                try await OpenCodeAPIClient.shared.disposeInstance()
+                resetError = ""
+                isResetting = false
+                showingResetSuccess = true
+            } catch {
+                resetError = "Failed to reset instance: \(error.localizedDescription)"
+                isResetting = false
+                showingResetSuccess = true
+            }
+        }
     }
 }
 

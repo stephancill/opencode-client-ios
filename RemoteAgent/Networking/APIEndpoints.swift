@@ -252,4 +252,8 @@ extension OpenCodeAPIClient {
         return try JSONDecoder().decode([String].self, from: data)
     }
 
+    func disposeInstance() async throws {
+        return try await performRequestWithoutResponse(endpoint: "/instance/dispose", method: .post)
+    }
+
 }
