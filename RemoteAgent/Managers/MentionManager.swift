@@ -10,22 +10,11 @@ class MentionManager: ObservableObject {
     private var searchTask: Task<Void, Never>?
     private let debounceDelay: TimeInterval = 0.3
 
-    func handleTextChange(_ text: String, cursorPosition: Int) {
-        guard cursorPosition >= 0 && cursorPosition <= text.count else {
-            hideAutocomplete()
-            return
-        }
-
-        let cursorIndex = text.index(text.startIndex, offsetBy: cursorPosition)
-
-        print("handleTextChange: text='\(text)', cursorPosition=\(cursorPosition)")
-
-        if let mentionInfo = findMention(in: text, cursorPosition: cursorIndex) {
-            print("Found mention: query='\(mentionInfo.query)', range=\(mentionInfo.range)")
+    func handleTextChange(_ text: String) {
+        if let mentionInfo = findMention(in: text) {
             mentionRange = mentionInfo.range
             triggerSearch(for: mentionInfo.query)
         } else {
-            print("No mention found, hiding autocomplete")
             hideAutocomplete()
         }
     }
@@ -51,41 +40,31 @@ class MentionManager: ObservableObject {
         return (newText, newText.count)
     }
 
-    private func findMention(in text: String, cursorPosition: String.Index) -> (query: String, range: Range<String.Index>)? {
-        guard cursorPosition > text.startIndex else { return nil }
-
-        var currentIndex = text.index(before: cursorPosition)
-
-        while true {
-            let char = text[currentIndex]
-
-            if char == "@" {
-                let prevIndex = currentIndex > text.startIndex ? text.index(before: currentIndex) : text.startIndex
-
-                if currentIndex == text.startIndex || text[prevIndex].isWhitespace || text[prevIndex] == "\n" {
-                    let queryStart = text.index(after: currentIndex)
-                    let queryRange = queryStart..<cursorPosition
-                    let query = String(text[queryRange])
-                    return (query: query, range: currentIndex..<cursorPosition)
-                } else {
-                    return nil
-                }
-            }
-
-            if char.isWhitespace || char == "\n" {
-                return nil
-            }
-
-            if currentIndex == text.startIndex {
-                return nil
-            }
-
-            currentIndex = text.index(before: currentIndex)
+    private func findMention(in text: String) -> (query: String, range: Range<String.Index>)? {
+        guard let atIndex = text.lastIndex(of: "@") else {
+            return nil
         }
+
+        let prevIndex = atIndex > text.startIndex ? text.index(before: atIndex) : text.startIndex
+
+        guard atIndex == text.startIndex || text[prevIndex].isWhitespace || text[prevIndex] == "\n" else {
+            return nil
+        }
+
+        let afterAt = text.index(after: atIndex)
+
+        guard afterAt <= text.endIndex else {
+            return nil
+        }
+
+        let queryStart = afterAt
+        let queryRange = queryStart..<text.endIndex
+        let query = String(text[queryRange])
+
+        return (query: query, range: atIndex..<text.endIndex)
     }
 
     private func triggerSearch(for query: String) {
-        print("triggerSearch: query='\(query)'")
         searchTask?.cancel()
 
         searchTask = Task {
@@ -94,18 +73,14 @@ class MentionManager: ObservableObject {
             guard !Task.isCancelled else { return }
 
             do {
-                print("API call: searching with query='\(query)'")
                 let results = try await OpenCodeAPIClient.shared.searchDirectories(query: query)
                 let limitedResults = Array(results.prefix(3))
-                print("API response: \(limitedResults.count) results")
 
                 if !Task.isCancelled {
                     suggestions = limitedResults
                     isAutocompleteVisible = !limitedResults.isEmpty
-                    print("Autocomplete visible: \(isAutocompleteVisible), suggestions: \(suggestions)")
                 }
             } catch {
-                print("Failed to search directories: \(error)")
                 if !Task.isCancelled {
                     isAutocompleteVisible = false
                     suggestions = []

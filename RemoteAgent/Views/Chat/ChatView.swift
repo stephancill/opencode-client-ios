@@ -133,7 +133,7 @@ struct ChatView: View {
                             .lineLimit(1...6)
                             .focused($isInputFocused)
                             .onChange(of: inputText) { oldValue, newValue in
-                                mentionManager.handleTextChange(newValue, cursorPosition: newValue.count)
+                                mentionManager.handleTextChange(newValue)
                             }
                             .onSubmit {
                                 if !inputText.isEmpty && !isLoading {
