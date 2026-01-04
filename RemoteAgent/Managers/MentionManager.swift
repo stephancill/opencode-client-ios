@@ -45,10 +45,8 @@ class MentionManager: ObservableObject {
         let replacement = "@\(suggestion) "
         newText.replaceSubrange(mentionRange, with: replacement)
 
-        let newCursorPosition = text.index(text.startIndex, offsetBy: mentionRange.lowerIndex.utf16Offset(in: text) + replacement.count)
-
         hideAutocomplete()
-        return (newText, newText.distance(from: newText.startIndex, to: newCursorPosition))
+        return (newText, newText.count)
     }
 
     private func findMention(in text: String, cursorPosition: String.Index) -> (query: String, range: Range<String.Index>)? {

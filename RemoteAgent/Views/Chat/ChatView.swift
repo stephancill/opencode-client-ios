@@ -107,7 +107,7 @@ struct ChatView: View {
                     AutocompleteView(
                         suggestions: mentionManager.suggestions,
                         onSelect: { suggestion in
-                            let (newText, newCursorPos) = mentionManager.selectSuggestion(suggestion, in: inputText)
+                            let (newText, _) = mentionManager.selectSuggestion(suggestion, in: inputText)
                             inputText = newText
                         }
                     )
