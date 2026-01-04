@@ -119,7 +119,7 @@ struct ChatView: View {
                         .opacity(mentionManager.isAutocompleteVisible ? 1 : 0)
 
                     HStack(alignment: .bottom, spacing: 12) {
-                        if inputText.isEmpty {
+                        if inputText.isEmpty || !isInputFocused {
                             Picker("", selection: $agentMode) {
                                 Text("Build").tag(AgentMode.build)
                                 Text("Plan").tag(AgentMode.plan)
