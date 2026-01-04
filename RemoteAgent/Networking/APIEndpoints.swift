@@ -222,5 +222,12 @@ extension OpenCodeAPIClient {
         return SSEClient(url: url)
     }
 
+    func searchDirectories(query: String) async throws -> [String] {
+        var endpoint = "/find/file?type=directory&limit=50"
+        if !query.isEmpty {
+            endpoint += "&query=\(query)"
+        }
+        return try await performRequest(endpoint: endpoint)
+    }
 
 }

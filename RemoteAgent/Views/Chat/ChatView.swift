@@ -9,6 +9,7 @@ struct ChatView: View {
     let session: Session
     @StateObject private var messageManager = MessageManager()
     @StateObject private var permissionManager = PermissionManager.shared
+    @StateObject private var mentionManager = MentionManager()
     @State private var inputText = ""
     @State private var isLoading = false
     @State private var autoScrollEnabled = true
@@ -101,38 +102,59 @@ struct ChatView: View {
 
             Divider()
 
-            HStack(alignment: .bottom, spacing: 12) {
-                if inputText.isEmpty {
-                    Picker("", selection: $agentMode) {
-                        Text("Build").tag(AgentMode.build)
-                        Text("Plan").tag(AgentMode.plan)
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(width: 120)
-                }
-
-                TextField("Message", text: $inputText, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(1...6)
-                    .focused($isInputFocused)
-                    .onSubmit {
-                        if !inputText.isEmpty && !isLoading {
-                            performSend()
+            ZStack(alignment: .bottom) {
+                VStack(spacing: 0) {
+                    AutocompleteView(
+                        suggestions: mentionManager.suggestions,
+                        onSelect: { suggestion in
+                            let (newText, newCursorPos) = mentionManager.selectSuggestion(suggestion, in: inputText)
+                            inputText = newText
                         }
-                    }
+                    )
+                    .padding(.horizontal)
+                    .opacity(mentionManager.isAutocompleteVisible ? 1 : 0)
+                    .frame(height: mentionManager.isAutocompleteVisible ? nil : 0)
 
-                Button(action: isLoading ? cancelRequest : performSend) {
-                    if isLoading {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.red)
-                    } else {
-                        Image(systemName: "paperplane.fill")
-                            .foregroundStyle(inputText.isEmpty ? Color.secondary : Color.accentColor)
+                    Divider()
+                        .opacity(mentionManager.isAutocompleteVisible ? 1 : 0)
+
+                    HStack(alignment: .bottom, spacing: 12) {
+                        if inputText.isEmpty {
+                            Picker("", selection: $agentMode) {
+                                Text("Build").tag(AgentMode.build)
+                                Text("Plan").tag(AgentMode.plan)
+                            }
+                            .pickerStyle(.segmented)
+                            .frame(width: 120)
+                        }
+
+                        TextField("Message", text: $inputText, axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .lineLimit(1...6)
+                            .focused($isInputFocused)
+                            .onChange(of: inputText) { oldValue, newValue in
+                                mentionManager.handleTextChange(newValue, cursorPosition: newValue.count)
+                            }
+                            .onSubmit {
+                                if !inputText.isEmpty && !isLoading {
+                                    performSend()
+                                }
+                            }
+
+                        Button(action: isLoading ? cancelRequest : performSend) {
+                            if isLoading {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.red)
+                            } else {
+                                Image(systemName: "paperplane.fill")
+                                    .foregroundStyle(inputText.isEmpty ? Color.secondary : Color.accentColor)
+                            }
+                        }
+                        .disabled(inputText.isEmpty && !isLoading)
                     }
+                    .padding()
                 }
-                .disabled(inputText.isEmpty && !isLoading)
             }
-            .padding()
         }
         .navigationTitle(session.title)
         .task {
@@ -193,6 +215,7 @@ struct ChatView: View {
         isLoading = true
         autoScrollEnabled = true
         isInputFocused = false
+        mentionManager.hideAutocomplete()
 
         Task { @MainActor in
             print("ChatView: Starting to send message")
