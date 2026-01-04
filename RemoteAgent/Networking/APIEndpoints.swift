@@ -223,11 +223,33 @@ extension OpenCodeAPIClient {
     }
 
     func searchDirectories(query: String) async throws -> [String] {
-        var endpoint = "/find/file?type=directory&limit=50"
-        if !query.isEmpty {
-            endpoint += "&query=\(query)"
+        var components = URLComponents(url: baseURL.appendingPathComponent("/find/file"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "type", value: "directory"),
+            URLQueryItem(name: "limit", value: "50"),
+            URLQueryItem(name: "query", value: query)
+        ]
+        
+        guard let url = components?.url else {
+            throw OpenCodeError.networkError(NSError(domain: "URLError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to construct URL"]))
         }
-        return try await performRequest(endpoint: endpoint)
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw OpenCodeError.invalidResponse
+        }
+        
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let body = String(data: data, encoding: .utf8) ?? ""
+            throw OpenCodeError.httpError(statusCode: httpResponse.statusCode, message: body)
+        }
+        
+        return try JSONDecoder().decode([String].self, from: data)
     }
 
 }

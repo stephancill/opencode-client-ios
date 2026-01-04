@@ -40,14 +40,14 @@ class OpenCodeAPIClient {
     static let shared = OpenCodeAPIClient()
 
     var baseURL: URL {
-        let baseURLString = UserDefaults.standard.string(forKey: "baseURL") ?? "https://vps.ts.net"
+        let baseURLString = UserDefaults.standard.string(forKey: "baseURL") ?? "http://localhost:4096"
         var urlString = baseURLString
 
         if urlString.contains("localhost") {
             urlString = urlString.replacingOccurrences(of: "localhost", with: "127.0.0.1")
         }
 
-        return URL(string: urlString) ?? URL(string: "https://vps.ts.net")!
+        return URL(string: urlString) ?? URL(string: "http://localhost:4096")!
     }
 
     private let session: URLSession

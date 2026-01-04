@@ -9,8 +9,14 @@ class MentionManager: ObservableObject {
 
     private var searchTask: Task<Void, Never>?
     private let debounceDelay: TimeInterval = 0.3
+    private var justSelectedSuggestion = false
 
     func handleTextChange(_ text: String) {
+        if justSelectedSuggestion {
+            justSelectedSuggestion = false
+            return
+        }
+        
         if let mentionInfo = findMention(in: text) {
             mentionRange = mentionInfo.range
             triggerSearch(for: mentionInfo.query)
@@ -36,6 +42,7 @@ class MentionManager: ObservableObject {
         let replacement = "@\(suggestion) "
         newText.replaceSubrange(mentionRange, with: replacement)
 
+        justSelectedSuggestion = true
         hideAutocomplete()
         return (newText, newText.count)
     }
@@ -74,7 +81,7 @@ class MentionManager: ObservableObject {
 
             do {
                 let results = try await OpenCodeAPIClient.shared.searchDirectories(query: query)
-                let limitedResults = Array(results.prefix(3))
+                let limitedResults = Array(results.prefix(20))
 
                 if !Task.isCancelled {
                     suggestions = limitedResults
