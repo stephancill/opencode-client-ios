@@ -54,7 +54,7 @@ class MentionManager: ObservableObject {
 
         var currentIndex = text.index(before: cursorPosition)
 
-        while currentIndex >= text.startIndex {
+        while true {
             let char = text[currentIndex]
 
             if char == "@" {
@@ -74,10 +74,12 @@ class MentionManager: ObservableObject {
                 return nil
             }
 
+            if currentIndex == text.startIndex {
+                return nil
+            }
+
             currentIndex = text.index(before: currentIndex)
         }
-
-        return nil
     }
 
     private func triggerSearch(for query: String) {
