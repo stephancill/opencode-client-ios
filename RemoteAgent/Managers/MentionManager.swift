@@ -18,12 +18,14 @@ class MentionManager: ObservableObject {
 
         let cursorIndex = text.index(text.startIndex, offsetBy: cursorPosition)
 
+        print("handleTextChange: text='\(text)', cursorPosition=\(cursorPosition)")
+
         if let mentionInfo = findMention(in: text, cursorPosition: cursorIndex) {
-            if mentionInfo.query != text[mentionInfo.range] {
-                mentionRange = mentionInfo.range
-                triggerSearch(for: mentionInfo.query)
-            }
+            print("Found mention: query='\(mentionInfo.query)', range=\(mentionInfo.range)")
+            mentionRange = mentionInfo.range
+            triggerSearch(for: mentionInfo.query)
         } else {
+            print("No mention found, hiding autocomplete")
             hideAutocomplete()
         }
     }
@@ -83,6 +85,7 @@ class MentionManager: ObservableObject {
     }
 
     private func triggerSearch(for query: String) {
+        print("triggerSearch: query='\(query)'")
         searchTask?.cancel()
 
         searchTask = Task {
@@ -91,12 +94,15 @@ class MentionManager: ObservableObject {
             guard !Task.isCancelled else { return }
 
             do {
+                print("API call: searching with query='\(query)'")
                 let results = try await OpenCodeAPIClient.shared.searchDirectories(query: query)
                 let limitedResults = Array(results.prefix(3))
+                print("API response: \(limitedResults.count) results")
 
                 if !Task.isCancelled {
                     suggestions = limitedResults
                     isAutocompleteVisible = !limitedResults.isEmpty
+                    print("Autocomplete visible: \(isAutocompleteVisible), suggestions: \(suggestions)")
                 }
             } catch {
                 print("Failed to search directories: \(error)")
