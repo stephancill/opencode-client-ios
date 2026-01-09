@@ -177,6 +177,28 @@ struct AssistantMessageTime: Codable {
 struct MessageError: Codable {
     let name: String?
     let message: String?
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.name = try container.decodeIfPresent(String.self, forKey: .name)
+
+        if let message = try container.decodeIfPresent(String.self, forKey: .message) {
+            self.message = message
+        } else if let dataContainer = try? container.nestedContainer(keyedBy: DataCodingKeys.self, forKey: .data),
+                  let dataMessage = try dataContainer.decodeIfPresent(String.self, forKey: .message) {
+            self.message = dataMessage
+        } else {
+            self.message = nil
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name, message, data
+    }
+
+    enum DataCodingKeys: String, CodingKey {
+        case message
+    }
 }
 
 struct MessagePath: Codable {
