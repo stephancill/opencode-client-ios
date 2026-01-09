@@ -31,6 +31,9 @@ struct MessagePart: Identifiable, Codable {
     let metadata: PartMetadata?
     let time: PartTime?
     let callID: String?
+    let reason: String?  // For step-finish parts
+    let cost: Double?  // For step-finish parts
+    let tokens: TokenInfo?  // For step-finish parts
 
     struct FilePart: Codable {
         let filename: String?
@@ -94,9 +97,18 @@ struct MessagePart: Identifiable, Codable {
 
         // Tool is just a string name (e.g., "bash", "write", "read")
         self.tool = try container.decodeIfPresent(String.self, forKey: .tool)
-        
+
         // State contains the tool input/output
         self.state = try container.decodeIfPresent(ToolState.self, forKey: .state)
+
+        // Additional fields for step-finish parts
+        self.reason = try container.decodeIfPresent(String.self, forKey: .reason)
+        self.cost = try container.decodeIfPresent(Double.self, forKey: .cost)
+        self.tokens = try container.decodeIfPresent(TokenInfo.self, forKey: .tokens)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, sessionID, messageID, type, text, file, synthetic, reasoning, tool, state, snapshot, title, metadata, time, callID, reason, cost, tokens
     }
 }
 
