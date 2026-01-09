@@ -204,6 +204,12 @@ struct MessageError: Codable {
         }
     }
 
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(name, forKey: .name)
+        try container.encodeIfPresent(message, forKey: .message)
+    }
+
     enum CodingKeys: String, CodingKey {
         case name, message, data
     }
